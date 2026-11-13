@@ -43,7 +43,8 @@ suite('Project Scanner', () => {
                 'Rust',
                 'Next.js',
                 'React',
-                'TypeScript'
+                'TypeScript',
+                'pip (requirements.txt)'
             ]);
             assert.strictEqual(result.packageManager?.name, 'npm');
             assert.deepStrictEqual(result.scripts, [

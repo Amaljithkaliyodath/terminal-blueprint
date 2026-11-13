@@ -5,6 +5,7 @@ import {
     PackageManagerDetection,
     scanPackageJson
 } from './packageJsonScanner';
+import { scanPythonProject } from './pythonScanner';
 
 // Structure of the scan result.
 export interface ProjectInfo {
@@ -80,9 +81,14 @@ export async function scanProjectFolder(
     }
 
     const packageJson = await scanPackageJson(folderUri);
+    const python = await scanPythonProject(folderUri);
 
-    if (packageJson) {
-        for (const technology of packageJson.technologies) {
+    for (const scanResult of [packageJson, python]) {
+        if (!scanResult) {
+            continue;
+        }
+
+        for (const technology of scanResult.technologies) {
             if (!technologies.includes(technology)) {
                 technologies.push(technology);
             }
