@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { scanProjectFolder } from '../scanner/projectScanner';
+import { normalizePathForComparison } from './pathComparison';
 
 suite('Project Scanner', () => {
     test('preserves non-Node ecosystem detection while adding package metadata', async () => {
@@ -52,6 +53,11 @@ suite('Project Scanner', () => {
                 'Cargo'
             ]);
             assert.strictEqual(result.packageManager?.name, 'npm');
+            assert.strictEqual(result.relativePath, '.');
+            assert.strictEqual(
+                normalizePathForComparison(result.workingDirectory.fsPath),
+                normalizePathForComparison(fixturePath)
+            );
             assert.deepStrictEqual(result.scripts, [
                 { name: 'dev', command: 'next dev' }
             ]);

@@ -49,7 +49,11 @@ export function activate(context: vscode.ExtensionContext) {
                 // Display all detected projects.
                 for (const project of projects) {
                     output.appendLine(
-                        `Project: ${project.name}`
+                        `Project: ${project.name} (${project.relativePath})`
+                    );
+
+                    output.appendLine(
+                        `Working directory: ${project.workingDirectory.fsPath || project.workingDirectory.toString()}`
                     );
 
                     output.appendLine(
