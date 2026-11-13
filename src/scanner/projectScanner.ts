@@ -87,17 +87,10 @@ export async function scanProjectFolder(
     folderUri: vscode.Uri,
     workspaceUri: vscode.Uri = folderUri
 ): Promise<ProjectInfo> {
-    // Files that indicate particular project ecosystems.
+    // Preserve a broad Node.js result even when package.json is malformed.
+    // All other technologies are verified by their dedicated metadata scanners.
     const detectionFiles: Record<string, string> = {
-        'package.json': 'Node.js ecosystem',
-        'pyproject.toml': 'Python',
-        'requirements.txt': 'Python',
-        'composer.json': 'PHP',
-        'pom.xml': 'Java (Maven)',
-        'build.gradle': 'Java / Gradle',
-        'build.gradle.kts': 'Java / Kotlin (Gradle)',
-        'go.mod': 'Go',
-        'Cargo.toml': 'Rust'
+        'package.json': 'Node.js ecosystem'
     };
 
     const technologies: string[] = [];

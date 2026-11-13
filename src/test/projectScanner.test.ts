@@ -36,20 +36,18 @@ suite('Project Scanner', () => {
 
             assert.deepStrictEqual(result.technologies, [
                 'Node.js ecosystem',
-                'Python',
-                'PHP',
-                'Java (Maven)',
-                'Java / Gradle',
-                'Go',
-                'Rust',
                 'Next.js',
                 'React',
                 'TypeScript',
+                'Python',
                 'pip (requirements.txt)',
+                'PHP',
                 'Composer',
                 'Maven',
                 'Gradle',
+                'Go',
                 'Go modules',
+                'Rust',
                 'Cargo'
             ]);
             assert.strictEqual(result.packageManager?.name, 'npm');
@@ -87,6 +85,65 @@ suite('Project Scanner', () => {
             ]);
             assert.deepStrictEqual(result.scripts, []);
             assert.strictEqual(result.packageManager, undefined);
+        } finally {
+            await fs.rm(fixturePath, { recursive: true, force: true });
+        }
+    });
+
+    test('does not claim languages from empty or invalid metadata', async () => {
+        const fixturePath = await fs.mkdtemp(path.join(os.tmpdir(), 'terminal-blueprint-'));
+
+        try {
+            await Promise.all([
+                fs.writeFile(path.join(fixturePath, 'pom.xml'), '<project />'),
+                fs.writeFile(path.join(fixturePath, 'build.gradle'), ''),
+                fs.writeFile(path.join(fixturePath, 'build.gradle.kts'), ''),
+                fs.writeFile(path.join(fixturePath, 'go.mod'), '// not a module'),
+                fs.writeFile(path.join(fixturePath, 'Cargo.toml'), '[metadata]')
+            ]);
+
+            const result = await scanProjectFolder(
+                'fixture',
+                vscode.Uri.file(fixturePath)
+            );
+
+            assert.deepStrictEqual(result.technologies, ['Maven', 'Gradle']);
+            assert.ok(!result.technologies.includes('Java'));
+            assert.ok(!result.technologies.includes('Kotlin'));
+            assert.ok(!result.technologies.includes('Go'));
+            assert.ok(!result.technologies.includes('Rust'));
+        } finally {
+            await fs.rm(fixturePath, { recursive: true, force: true });
+        }
+    });
+
+    test('reports verified Java and Kotlin metadata', async () => {
+        const fixturePath = await fs.mkdtemp(path.join(os.tmpdir(), 'terminal-blueprint-'));
+
+        try {
+            await Promise.all([
+                fs.writeFile(
+                    path.join(fixturePath, 'pom.xml'),
+                    '<plugin>maven-compiler-plugin</plugin><artifactId>spring-boot-starter-web</artifactId>'
+                ),
+                fs.writeFile(
+                    path.join(fixturePath, 'build.gradle.kts'),
+                    'plugins { kotlin("jvm"); id("org.springframework.boot") }'
+                )
+            ]);
+
+            const result = await scanProjectFolder(
+                'fixture',
+                vscode.Uri.file(fixturePath)
+            );
+
+            assert.deepStrictEqual(result.technologies, [
+                'Maven',
+                'Gradle',
+                'Java',
+                'Kotlin',
+                'Spring Boot'
+            ]);
         } finally {
             await fs.rm(fixturePath, { recursive: true, force: true });
         }
