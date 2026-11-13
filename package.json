@@ -1,10 +1,11 @@
+
 {
   "name": "terminal-blueprint",
   "displayName": "Terminal Blueprint",
   "description": "Detect project types, suggest commands, and launch reusable terminal setups",
   "version": "0.0.1",
   "engines": {
-      "vscode": "^1.85.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Other"
@@ -16,6 +17,10 @@
       {
         "command": "terminal-blueprint.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "terminal-blueprint.scanProject",
+        "title": "Terminal Blueprint: Scan Project"
       }
     ]
   },
@@ -28,7 +33,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.146.0",
+    "@types/vscode": "1.85.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "24.x",
     "typescript-eslint": "^8.61.1",
