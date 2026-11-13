@@ -1,5 +1,6 @@
 
 import * as vscode from 'vscode';
+import { getScriptInvocation } from './scanner/packageJsonScanner';
 import { scanProjects } from './scanner/projectScanner';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -56,6 +57,32 @@ export function activate(context: vscode.ExtensionContext) {
                             project.technologies.join(', ') || 'Unknown'
                         }`
                     );
+
+                    if (project.packageManager) {
+                        const { candidates, isAmbiguous, name, source } = project.packageManager;
+                        const packageManager = isAmbiguous
+                            ? `Ambiguous (${candidates.join(', ')})`
+                            : name ?? candidates.join(', ');
+                        output.appendLine(
+                            `Package manager: ${packageManager}${
+                                source ? ` (${source})` : ''
+                            }`
+                        );
+                    }
+
+                    if (project.scripts.length > 0) {
+                        output.appendLine('Available scripts:');
+                        for (const script of project.scripts) {
+                            const invocation = getScriptInvocation(
+                                script.name,
+                                project.packageManager
+                            );
+                            output.appendLine(
+                                `  ${script.name}: ${invocation ?? 'Invocation unavailable'} ` +
+                                `(${script.command})`
+                            );
+                        }
+                    }
 
                     output.appendLine('--------------------------------');
                 }
