@@ -44,7 +44,12 @@ suite('Project Scanner', () => {
                 'Next.js',
                 'React',
                 'TypeScript',
-                'pip (requirements.txt)'
+                'pip (requirements.txt)',
+                'Composer',
+                'Maven',
+                'Gradle',
+                'Go modules',
+                'Cargo'
             ]);
             assert.strictEqual(result.packageManager?.name, 'npm');
             assert.deepStrictEqual(result.scripts, [
@@ -71,7 +76,8 @@ suite('Project Scanner', () => {
 
             assert.deepStrictEqual(result.technologies, [
                 'Node.js ecosystem',
-                'Go'
+                'Go',
+                'Go modules'
             ]);
             assert.deepStrictEqual(result.scripts, []);
             assert.strictEqual(result.packageManager, undefined);

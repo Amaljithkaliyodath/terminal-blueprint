@@ -5,7 +5,11 @@ import {
     PackageManagerDetection,
     scanPackageJson
 } from './packageJsonScanner';
+import { scanGoProject } from './goScanner';
+import { scanJavaProject } from './javaScanner';
+import { scanPhpProject } from './phpScanner';
 import { scanPythonProject } from './pythonScanner';
+import { scanRustProject } from './rustScanner';
 
 // Structure of the scan result.
 export interface ProjectInfo {
@@ -82,8 +86,12 @@ export async function scanProjectFolder(
 
     const packageJson = await scanPackageJson(folderUri);
     const python = await scanPythonProject(folderUri);
+    const php = await scanPhpProject(folderUri);
+    const java = await scanJavaProject(folderUri);
+    const go = await scanGoProject(folderUri);
+    const rust = await scanRustProject(folderUri);
 
-    for (const scanResult of [packageJson, python]) {
+    for (const scanResult of [packageJson, python, php, java, go, rust]) {
         if (!scanResult) {
             continue;
         }
