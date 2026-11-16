@@ -45,14 +45,30 @@ export class BlueprintStorageService {
     }
 
     public save(document: TerminalBlueprintStorageDocument): Promise<void> {
-        const operation = this.writeQueue.then(async () => {
+        const operation = this.enqueueWrite(async () => {
             const validatedDocument = validateBlueprintStorageDocument(document);
             // Never overwrite unreadable or malformed existing user data.
             await this.readExistingDocument();
             await this.writeDocument(validatedDocument);
         });
-        this.writeQueue = operation.catch(() => undefined);
         return operation;
+    }
+
+    public update(
+        updater: (document: TerminalBlueprintStorageDocument) => TerminalBlueprintStorageDocument
+    ): Promise<TerminalBlueprintStorageDocument> {
+        return this.enqueueWrite(async () => {
+            const currentDocument = await this.readExistingDocument() ?? createEmptyBlueprintStorageDocument();
+            const updatedDocument = validateBlueprintStorageDocument(updater(currentDocument));
+            await this.writeDocument(updatedDocument);
+            return updatedDocument;
+        });
+    }
+
+    private enqueueWrite<T>(operation: () => Promise<T>): Promise<T> {
+        const queuedOperation = this.writeQueue.then(operation);
+        this.writeQueue = queuedOperation.then(() => undefined, () => undefined);
+        return queuedOperation;
     }
 
     private async readExistingDocument(): Promise<TerminalBlueprintStorageDocument | undefined> {

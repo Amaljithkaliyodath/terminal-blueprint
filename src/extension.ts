@@ -8,9 +8,12 @@ import {
     selectAndRunSuggestedCommand
 } from './launcher/commandSelectionController';
 import { TerminalLifecycleManager } from './launcher/terminalLifecycleManager';
+import { createBlueprintFromInputs, manageBlueprintsFromInputs } from './blueprints/blueprintManagementController';
+import { BlueprintManagementService } from './blueprints/blueprintManagementService';
 import { formatScanOutput } from './output/scanOutputFormatter';
 import { scanProjects } from './scanner/projectScanner';
 import { generateCommandSuggestions } from './suggestions/commandSuggestionEngine';
+import { BlueprintStorageService } from './storage/blueprintStorageService';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -25,6 +28,9 @@ export function activate(context: vscode.ExtensionContext) {
             return vscode.window.onDidCloseTerminal(listener);
         }
     });
+    const blueprintManagementService = new BlueprintManagementService(
+        new BlueprintStorageService(context.globalStorageUri)
+    );
 
     // Command 1: Display extension information.
     const helloWorld = vscode.commands.registerCommand(
@@ -109,17 +115,38 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
+    const createBlueprint = vscode.commands.registerCommand(
+        'terminal-blueprint.createBlueprint',
+        async () => runBlueprintManagementAction(() => createBlueprintFromInputs(blueprintManagementService))
+    );
+
+    const manageBlueprints = vscode.commands.registerCommand(
+        'terminal-blueprint.manageBlueprints',
+        async () => runBlueprintManagementAction(() => manageBlueprintsFromInputs(blueprintManagementService))
+    );
+
     // VS Code will clean these up when the extension stops.
     context.subscriptions.push(
         helloWorld,
         scanProject,
         runSuggestedCommand,
+        createBlueprint,
+        manageBlueprints,
         terminalLifecycleManager,
         output
     );
 }
 
 export function deactivate() {}
+
+async function runBlueprintManagementAction(action: () => Promise<void>): Promise<void> {
+    try {
+        await action();
+    } catch (error) {
+        console.error('Terminal Blueprint blueprint management failed:', error);
+        vscode.window.showErrorMessage('Terminal Blueprint: Unable to update local blueprints. Existing data was not changed.');
+    }
+}
 
 function createCommandSelectionUi(): CommandSelectionUi {
     return {

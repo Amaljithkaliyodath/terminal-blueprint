@@ -25,6 +25,14 @@
       {
         "command": "terminal-blueprint.runSuggestedCommand",
         "title": "Terminal Blueprint: Run Suggested Command"
+      },
+      {
+        "command": "terminal-blueprint.createBlueprint",
+        "title": "Terminal Blueprint: Create Blueprint"
+      },
+      {
+        "command": "terminal-blueprint.manageBlueprints",
+        "title": "Terminal Blueprint: Manage Blueprints"
       }
     ]
   },
