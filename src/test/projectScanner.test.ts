@@ -148,4 +148,30 @@ suite('Project Scanner', () => {
             await fs.rm(fixturePath, { recursive: true, force: true });
         }
     });
+
+    test('preserves verified Composer scripts and Django manage.py metadata', async () => {
+        const fixturePath = await fs.mkdtemp(path.join(os.tmpdir(), 'terminal-blueprint-'));
+
+        try {
+            await Promise.all([
+                fs.writeFile(
+                    path.join(fixturePath, 'composer.json'),
+                    JSON.stringify({ scripts: { test: 'phpunit' } })
+                ),
+                fs.writeFile(path.join(fixturePath, 'manage.py'), '')
+            ]);
+
+            const result = await scanProjectFolder(
+                'fixture',
+                vscode.Uri.file(fixturePath)
+            );
+
+            assert.deepStrictEqual(result.composerScripts, [
+                { name: 'test', command: 'phpunit' }
+            ]);
+            assert.strictEqual(result.hasDjangoManagePy, true);
+        } finally {
+            await fs.rm(fixturePath, { recursive: true, force: true });
+        }
+    });
 });

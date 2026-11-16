@@ -143,6 +143,8 @@ function createProject(overrides: Partial<ProjectInfo> = {}): ProjectInfo {
             isAmbiguous: false
         },
         scripts: [{ name: 'dev', command: 'node app.js' }],
+        composerScripts: [],
+        hasDjangoManagePy: false,
         ...overrides
     };
 }

@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
+import { DiscoveredScript } from './packageJsonScanner';
 
 export interface PhpScanResult {
     technologies: string[];
+    composerScripts: DiscoveredScript[];
 }
 
 const textDecoder = new TextDecoder('utf-8');
@@ -22,38 +24,60 @@ export function analyzePhpMetadata(
     artisanExists: boolean
 ): PhpScanResult {
     const technologies: string[] = [];
+    const composer = parseComposerJson(composerJson);
 
     if (composerJson !== undefined) {
         technologies.push('PHP', 'Composer');
     }
 
-    if (artisanExists || declaresLaravel(composerJson)) {
+    if (artisanExists || declaresLaravel(composer)) {
         if (!technologies.includes('PHP')) {
             technologies.push('PHP');
         }
         technologies.push('Laravel');
     }
 
-    return { technologies };
+    return {
+        technologies,
+        composerScripts: extractComposerScripts(composer?.scripts)
+    };
 }
 
-function declaresLaravel(composerJson: string | undefined): boolean {
+function parseComposerJson(composerJson: string | undefined): Record<string, unknown> | undefined {
     if (composerJson === undefined) {
-        return false;
+        return undefined;
     }
 
     try {
         const parsed: unknown = JSON.parse(composerJson);
-        if (!isRecord(parsed)) {
-            return false;
+        return isRecord(parsed) ? parsed : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function declaresLaravel(composer: Record<string, unknown> | undefined): boolean {
+    return composer?.name === 'laravel/laravel' ||
+        dependencyGroupHasLaravel(composer?.require) ||
+        dependencyGroupHasLaravel(composer?.['require-dev']);
+}
+
+function extractComposerScripts(value: unknown): DiscoveredScript[] {
+    if (!isRecord(value)) {
+        return [];
+    }
+
+    return Object.entries(value).flatMap(([name, command]) => {
+        if (typeof command === 'string') {
+            return [{ name, command }];
         }
 
-        return parsed.name === 'laravel/laravel' ||
-            dependencyGroupHasLaravel(parsed.require) ||
-            dependencyGroupHasLaravel(parsed['require-dev']);
-    } catch {
-        return false;
-    }
+        if (Array.isArray(command) && command.every((entry) => typeof entry === 'string')) {
+            return [{ name, command: command.join(' && ') }];
+        }
+
+        return [];
+    });
 }
 
 function dependencyGroupHasLaravel(value: unknown): boolean {

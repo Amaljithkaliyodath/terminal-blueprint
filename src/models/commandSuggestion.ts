@@ -1,7 +1,14 @@
 import * as vscode from 'vscode';
 import { ProjectInfo } from '../scanner/projectScanner';
 
-export type CommandSuggestionSource = 'package.json script';
+export type CommandSuggestionSource =
+    | 'package.json script'
+    | 'composer script'
+    | 'Maven lifecycle'
+    | 'Gradle standard task'
+    | 'Go module'
+    | 'Cargo package'
+    | 'Django manage.py';
 
 export interface CommandSuggestion {
     id: string;
@@ -16,7 +23,8 @@ export interface CommandSuggestion {
 
 export type CommandSuggestionWarningCode =
     | 'ambiguous-package-manager'
-    | 'missing-package-manager';
+    | 'missing-package-manager'
+    | 'unsafe-script-name';
 
 export interface CommandSuggestionWarning {
     id: string;

@@ -4,10 +4,14 @@ import { analyzePhpMetadata } from '../scanner/phpScanner';
 suite('PHP Scanner', () => {
     test('detects Composer and Laravel from an explicit framework dependency', () => {
         const result = analyzePhpMetadata(JSON.stringify({
-            require: { 'laravel/framework': '^11.0' }
+            require: { 'laravel/framework': '^11.0' },
+            scripts: { test: 'phpunit' }
         }), false);
 
         assert.deepStrictEqual(result.technologies, ['PHP', 'Composer', 'Laravel']);
+        assert.deepStrictEqual(result.composerScripts, [
+            { name: 'test', command: 'phpunit' }
+        ]);
     });
 
     test('detects Laravel from artisan without assuming Composer metadata exists', () => {
