@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { scanProjectFolder } from '../scanner/projectScanner';
+import { generateCommandSuggestions } from '../suggestions/commandSuggestionEngine';
 import { normalizePathForComparison } from './pathComparison';
 
 suite('Project Scanner', () => {
@@ -14,10 +15,10 @@ suite('Project Scanner', () => {
             await Promise.all([
                 fs.writeFile(path.join(fixturePath, 'requirements.txt'), ''),
                 fs.writeFile(path.join(fixturePath, 'composer.json'), '{}'),
-                fs.writeFile(path.join(fixturePath, 'pom.xml'), '<project />'),
+                fs.writeFile(path.join(fixturePath, 'pom.xml'), '<project><modelVersion>4.0.0</modelVersion></project>'),
                 fs.writeFile(path.join(fixturePath, 'build.gradle'), ''),
                 fs.writeFile(path.join(fixturePath, 'go.mod'), 'module example'),
-                fs.writeFile(path.join(fixturePath, 'Cargo.toml'), '[package]'),
+                fs.writeFile(path.join(fixturePath, 'Cargo.toml'), '[package]\nname = "fixture"\nversion = "0.1.0"'),
                 fs.writeFile(path.join(fixturePath, 'package-lock.json'), '{}'),
                 fs.writeFile(
                     path.join(fixturePath, 'package.json'),
@@ -107,7 +108,7 @@ suite('Project Scanner', () => {
                 vscode.Uri.file(fixturePath)
             );
 
-            assert.deepStrictEqual(result.technologies, ['Maven', 'Gradle']);
+            assert.deepStrictEqual(result.technologies, ['Gradle']);
             assert.ok(!result.technologies.includes('Java'));
             assert.ok(!result.technologies.includes('Kotlin'));
             assert.ok(!result.technologies.includes('Go'));
@@ -124,7 +125,7 @@ suite('Project Scanner', () => {
             await Promise.all([
                 fs.writeFile(
                     path.join(fixturePath, 'pom.xml'),
-                    '<plugin>maven-compiler-plugin</plugin><artifactId>spring-boot-starter-web</artifactId>'
+                    '<project><modelVersion>4.0.0</modelVersion><plugin>maven-compiler-plugin</plugin><artifactId>spring-boot-starter-web</artifactId></project>'
                 ),
                 fs.writeFile(
                     path.join(fixturePath, 'build.gradle.kts'),
@@ -144,6 +145,43 @@ suite('Project Scanner', () => {
                 'Kotlin',
                 'Spring Boot'
             ]);
+        } finally {
+            await fs.rm(fixturePath, { recursive: true, force: true });
+        }
+    });
+
+    test('does not generate Maven or Cargo commands from invalid manifests', async () => {
+        const fixturePath = await fs.mkdtemp(path.join(os.tmpdir(), 'terminal-blueprint-'));
+
+        try {
+            await Promise.all([
+                fs.writeFile(path.join(fixturePath, 'pom.xml'), '<project />'),
+                fs.writeFile(path.join(fixturePath, 'Cargo.toml'), '[package]\nname = "fixture"')
+            ]);
+
+            const project = await scanProjectFolder('fixture', vscode.Uri.file(fixturePath));
+            const suggestions = generateCommandSuggestions([project]);
+
+            assert.deepStrictEqual(project.technologies, []);
+            assert.deepStrictEqual(suggestions.suggestions, []);
+        } finally {
+            await fs.rm(fixturePath, { recursive: true, force: true });
+        }
+    });
+
+    test('generates Maven and Cargo commands from verified manifests', async () => {
+        const fixturePath = await fs.mkdtemp(path.join(os.tmpdir(), 'terminal-blueprint-'));
+
+        try {
+            await Promise.all([
+                fs.writeFile(path.join(fixturePath, 'pom.xml'), '<project><modelVersion>4.0.0</modelVersion></project>'),
+                fs.writeFile(path.join(fixturePath, 'Cargo.toml'), '[package]\nname = "fixture"\nversion = "0.1.0"')
+            ]);
+
+            const project = await scanProjectFolder('fixture', vscode.Uri.file(fixturePath));
+            const commands = generateCommandSuggestions([project]).suggestions.map((suggestion) => suggestion.command);
+
+            assert.deepStrictEqual(commands, ['mvn test', 'mvn package', 'cargo test', 'cargo build']);
         } finally {
             await fs.rm(fixturePath, { recursive: true, force: true });
         }

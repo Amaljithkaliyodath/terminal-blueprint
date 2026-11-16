@@ -31,7 +31,7 @@ export function analyzeJavaMetadata(metadata: JavaMetadata): JavaScanResult {
         .filter((contents): contents is string => contents !== undefined);
     const allMetadata = [metadata.pomXml, ...gradleFiles].join('\n');
 
-    if (metadata.pomXml !== undefined) {
+    if (isValidMavenPom(metadata.pomXml)) {
         technologies.push('Maven');
     }
 
@@ -52,6 +52,32 @@ export function analyzeJavaMetadata(metadata: JavaMetadata): JavaScanResult {
     }
 
     return { technologies };
+}
+
+function isValidMavenPom(pomXml: string | undefined): boolean {
+    if (!pomXml) {
+        return false;
+    }
+
+    const document = pomXml.trim();
+    const rootMatch = document.match(/^<project(?:\s[^>]*)?>/);
+
+    if (!rootMatch || !document.endsWith('</project>')) {
+        return false;
+    }
+
+    // This is deliberately a structural check, not XML evaluation. A Maven 3 POM
+    // requires a project root and model version; accepting only this conventional,
+    // closed form avoids suggesting Maven commands for empty or unrelated XML.
+    return /<modelVersion>\s*4\.0\.0\s*<\/modelVersion>/.test(document) &&
+        hasBalancedProjectTags(document);
+}
+
+function hasBalancedProjectTags(document: string): boolean {
+    const tags = document.match(/<\/?project(?:\s[^>]*)?>/g);
+    return tags?.length === 2 &&
+        tags[0].startsWith('<project') &&
+        tags[1] === '</project>';
 }
 
 function hasJavaIndicator(pomXml: string | undefined): boolean {

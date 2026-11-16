@@ -4,7 +4,7 @@ import { analyzeJavaMetadata } from '../scanner/javaScanner';
 suite('Java Scanner', () => {
     test('detects Maven, Java, and Spring Boot from Maven metadata', () => {
         const result = analyzeJavaMetadata({
-            pomXml: '<plugin>maven-compiler-plugin</plugin><artifactId>spring-boot-starter-web</artifactId>'
+            pomXml: '<project><modelVersion>4.0.0</modelVersion><plugin>maven-compiler-plugin</plugin><artifactId>spring-boot-starter-web</artifactId></project>'
         });
 
         assert.deepStrictEqual(result.technologies, ['Maven', 'Java', 'Spring Boot']);
@@ -23,5 +23,19 @@ suite('Java Scanner', () => {
             analyzeJavaMetadata({ buildGradle: '' }).technologies,
             ['Gradle']
         );
+    });
+
+    test('rejects empty, malformed, and unrelated Maven XML', () => {
+        for (const pomXml of ['', '<project />', '<project><modelVersion>4.0.0</modelVersion>', '<configuration><modelVersion>4.0.0</modelVersion></configuration>']) {
+            assert.deepStrictEqual(analyzeJavaMetadata({ pomXml }).technologies, []);
+        }
+    });
+
+    test('detects a valid multi-module Maven POM', () => {
+        const result = analyzeJavaMetadata({
+            pomXml: '<project><modelVersion>4.0.0</modelVersion><packaging>pom</packaging><modules><module>api</module></modules></project>'
+        });
+
+        assert.deepStrictEqual(result.technologies, ['Maven']);
     });
 });
