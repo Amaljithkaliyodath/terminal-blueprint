@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { CommandSuggestion } from '../models/commandSuggestion';
+import type { TerminalTracker } from './terminalLifecycleManager';
 
 export interface SuggestedCommandQuickPickItem {
     label: string;
@@ -50,7 +51,7 @@ export interface TerminalService {
 interface ApprovedExecutionPlan {
     command: string;
     workingDirectory: vscode.Uri;
-    terminalName: string;
+    projectName: string;
 }
 
 export function createSuggestedCommandItems(
@@ -91,7 +92,8 @@ export async function selectAndRunSuggestedCommand(
     isWorkspaceTrusted: () => boolean,
     ui: CommandSelectionUi,
     workingDirectoryVerifier: WorkingDirectoryVerifier,
-    terminalService: TerminalService
+    terminalService: TerminalService,
+    terminalTracker: TerminalTracker
 ): Promise<CommandPreviewResult> {
     if (!isWorkspaceTrusted()) {
         ui.showWarning('Terminal Blueprint: Command execution is unavailable in an untrusted workspace.');
@@ -137,10 +139,20 @@ export async function selectAndRunSuggestedCommand(
     }
 
     try {
+        const terminalName = terminalTracker.createTerminalName(
+            executionPlan.projectName,
+            executionPlan.command
+        );
         const terminal = terminalService.createTerminal({
-            name: executionPlan.terminalName,
+            name: terminalName,
             cwd: executionPlan.workingDirectory
         });
+        terminalTracker.track(
+            terminal,
+            terminalName,
+            executionPlan.command,
+            executionPlan.workingDirectory
+        );
         terminal.sendText(executionPlan.command, true);
         terminal.show(false);
         return 'executed';
@@ -177,7 +189,7 @@ function createApprovedExecutionPlan(suggestion: CommandSuggestion): ApprovedExe
     return Object.freeze({
         command: suggestion.command,
         workingDirectory: suggestion.workingDirectory,
-        terminalName: `Terminal Blueprint: ${sanitizeTerminalName(suggestion.project.name)}`
+        projectName: suggestion.project.name
     });
 }
 
@@ -185,6 +197,3 @@ function formatWorkingDirectory(uri: vscode.Uri): string {
     return uri.fsPath || uri.toString();
 }
 
-function sanitizeTerminalName(name: string): string {
-    return name.replace(/[\r\n\t\0-\x1F\x7F]/g, ' ').trim().slice(0, 80) || 'Project';
-}

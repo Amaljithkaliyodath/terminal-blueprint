@@ -11,6 +11,7 @@ import {
     TerminalService,
     WorkingDirectoryVerifier
 } from '../launcher/commandSelectionController';
+import { TerminalTracker } from '../launcher/terminalLifecycleManager';
 import { CommandSuggestion } from '../models/commandSuggestion';
 import { ProjectInfo } from '../scanner/projectScanner';
 
@@ -33,7 +34,8 @@ suite('Command Selection Controller', () => {
     test('creates one visible terminal and sends the exact approved command once', async () => {
         const ui = createUi({ approved: true });
         const terminalService = createTerminalService();
-        const result = await selectAndRunSuggestedCommand([createSuggestion()], () => true, ui, availableDirectory, terminalService);
+        const tracker = createTerminalTracker();
+        const result = await selectAndRunSuggestedCommand([createSuggestion()], () => true, ui, availableDirectory, terminalService, tracker);
 
         assert.strictEqual(result, 'executed');
         assert.strictEqual(ui.preview?.command, 'npm run dev');
@@ -42,6 +44,29 @@ suite('Command Selection Controller', () => {
         assert.strictEqual(terminalService.created[0].showCount, 1);
         assert.strictEqual(terminalService.created[0].cwd.toString(), createSuggestion().workingDirectory.toString());
         assert.ok(terminalService.created[0].name.includes('Terminal Blueprint: project'));
+        assert.strictEqual(tracker.tracked.length, 1);
+    });
+
+    test('creates independent terminals for separately approved nested and multi-root projects', async () => {
+        const nested = createSuggestion({
+            project: createProject({ name: 'web', relativePath: 'apps/web', workingDirectory: vscode.Uri.parse('file:///first/apps/web') })
+        });
+        const otherRoot = createSuggestion({
+            id: 'suggestion:second:build',
+            command: 'npm run build',
+            project: createProject({ name: 'api', relativePath: 'services/api', workingDirectory: vscode.Uri.parse('file:///second/services/api') })
+        });
+        const terminalService = createTerminalService();
+        const tracker = createTerminalTracker();
+
+        assert.strictEqual(await selectAndRunSuggestedCommand([nested], () => true, createUi({ approved: true }), availableDirectory, terminalService, tracker), 'executed');
+        assert.strictEqual(await selectAndRunSuggestedCommand([otherRoot], () => true, createUi({ approved: true }), availableDirectory, terminalService, tracker), 'executed');
+
+        assert.strictEqual(terminalService.created.length, 2);
+        assert.deepStrictEqual(terminalService.created.map((terminal) => terminal.sentCommands), [['npm run dev'], ['npm run build']]);
+        assert.deepStrictEqual(terminalService.created.map((terminal) => terminal.cwd.toString()), [nested.workingDirectory.toString(), otherRoot.workingDirectory.toString()]);
+        assert.notStrictEqual(terminalService.created[0].name, terminalService.created[1].name);
+        assert.strictEqual(tracker.tracked.length, 2);
     });
 
     test('cancelling selection or approval leaves the command unapproved', async () => {
@@ -49,11 +74,11 @@ suite('Command Selection Controller', () => {
         const approvalCancelled = createUi({ approved: false });
 
         assert.strictEqual(
-            await selectAndRunSuggestedCommand([createSuggestion()], () => true, selectionCancelled, availableDirectory, createTerminalService()),
+            await selectAndRunSuggestedCommand([createSuggestion()], () => true, selectionCancelled, availableDirectory, createTerminalService(), createTerminalTracker()),
             'cancelled'
         );
         assert.strictEqual(
-            await selectAndRunSuggestedCommand([createSuggestion()], () => true, approvalCancelled, availableDirectory, createTerminalService()),
+            await selectAndRunSuggestedCommand([createSuggestion()], () => true, approvalCancelled, availableDirectory, createTerminalService(), createTerminalTracker()),
             'cancelled'
         );
         assert.strictEqual(selectionCancelled.preview, undefined);
@@ -66,11 +91,11 @@ suite('Command Selection Controller', () => {
         const untrusted = createUi();
 
         assert.strictEqual(
-            await selectAndRunSuggestedCommand([], () => true, noSuggestions, availableDirectory, createTerminalService()),
+            await selectAndRunSuggestedCommand([], () => true, noSuggestions, availableDirectory, createTerminalService(), createTerminalTracker()),
             'no-suggestions'
         );
         assert.strictEqual(
-            await selectAndRunSuggestedCommand([createSuggestion()], () => false, untrusted, availableDirectory, createTerminalService()),
+            await selectAndRunSuggestedCommand([createSuggestion()], () => false, untrusted, availableDirectory, createTerminalService(), createTerminalTracker()),
             'untrusted-workspace'
         );
         assert.deepStrictEqual(noSuggestions.information, ['Terminal Blueprint: No safe command suggestions are available in this workspace.']);
@@ -92,7 +117,7 @@ suite('Command Selection Controller', () => {
 
         const items = createSuggestedCommandItems([otherRoot, nested]);
         assert.notStrictEqual(items[0].suggestion.workingDirectory.toString(), items[1].suggestion.workingDirectory.toString());
-        assert.strictEqual(await selectAndRunSuggestedCommand([nested, otherRoot], () => true, ui, unavailable, createTerminalService()), 'unavailable-working-directory');
+        assert.strictEqual(await selectAndRunSuggestedCommand([nested, otherRoot], () => true, ui, unavailable, createTerminalService(), createTerminalTracker()), 'unavailable-working-directory');
         assert.strictEqual(ui.preview, undefined);
         assert.strictEqual(ui.warnings.length, 1);
     });
@@ -103,7 +128,7 @@ suite('Command Selection Controller', () => {
         const terminalService = createTerminalService();
 
         assert.strictEqual(
-            await selectAndRunSuggestedCommand([createSuggestion()], () => trusted, trustChangesAfterApproval, availableDirectory, terminalService),
+            await selectAndRunSuggestedCommand([createSuggestion()], () => trusted, trustChangesAfterApproval, availableDirectory, terminalService, createTerminalTracker()),
             'untrusted-workspace'
         );
         assert.strictEqual(terminalService.created.length, 0);
@@ -116,7 +141,7 @@ suite('Command Selection Controller', () => {
             }
         };
         assert.strictEqual(
-            await selectAndRunSuggestedCommand([createSuggestion()], () => true, createUi({ approved: true }), disappearsAfterPreview, createTerminalService()),
+            await selectAndRunSuggestedCommand([createSuggestion()], () => true, createUi({ approved: true }), disappearsAfterPreview, createTerminalService(), createTerminalTracker()),
             'unavailable-working-directory'
         );
     });
@@ -126,7 +151,7 @@ suite('Command Selection Controller', () => {
         const terminalService = createTerminalService();
         const ui = createUi({ approved: true, onApproval() { suggestion.command = 'npm run dev && unexpected-command'; } });
 
-        assert.strictEqual(await selectAndRunSuggestedCommand([suggestion], () => true, ui, availableDirectory, terminalService), 'executed');
+        assert.strictEqual(await selectAndRunSuggestedCommand([suggestion], () => true, ui, availableDirectory, terminalService, createTerminalTracker()), 'executed');
         assert.deepStrictEqual(terminalService.created[0].sentCommands, ['npm run dev']);
         assert.strictEqual(isSafeSuggestionForExecution({ ...createSuggestion(), command: 'npm run dev; injected-command' }), false);
     });
@@ -140,7 +165,7 @@ suite('Command Selection Controller', () => {
         };
 
         assert.strictEqual(
-            await selectAndRunSuggestedCommand([createSuggestion()], () => true, ui, availableDirectory, failingTerminalService),
+            await selectAndRunSuggestedCommand([createSuggestion()], () => true, ui, availableDirectory, failingTerminalService, createTerminalTracker()),
             'terminal-creation-failed'
         );
         assert.strictEqual(ui.warnings.length, 1);
@@ -208,6 +233,25 @@ function createTerminalService(): TestTerminalService {
                     terminal.showCount += 1;
                 }
             };
+        }
+    };
+}
+
+interface TestTerminalTracker extends TerminalTracker {
+    tracked: Array<{ terminal: unknown; name: string; command: string; workingDirectory: vscode.Uri }>;
+}
+
+function createTerminalTracker(): TestTerminalTracker {
+    let nextTerminalNumber = 1;
+    return {
+        tracked: [],
+        createTerminalName(projectName: string, command: string) {
+            const name = `Terminal Blueprint: ${projectName} - ${command} (${nextTerminalNumber})`;
+            nextTerminalNumber += 1;
+            return name;
+        },
+        track(terminal, name, command, workingDirectory) {
+            this.tracked.push({ terminal, name, command, workingDirectory });
         }
     };
 }

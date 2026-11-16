@@ -7,6 +7,7 @@ import {
     TerminalService,
     selectAndRunSuggestedCommand
 } from './launcher/commandSelectionController';
+import { TerminalLifecycleManager } from './launcher/terminalLifecycleManager';
 import { formatScanOutput } from './output/scanOutputFormatter';
 import { scanProjects } from './scanner/projectScanner';
 import { generateCommandSuggestions } from './suggestions/commandSuggestionEngine';
@@ -19,6 +20,11 @@ export function activate(context: vscode.ExtensionContext) {
     const output = vscode.window.createOutputChannel(
         'Terminal Blueprint'
     );
+    const terminalLifecycleManager = new TerminalLifecycleManager({
+        onDidCloseTerminal(listener) {
+            return vscode.window.onDidCloseTerminal(listener);
+        }
+    });
 
     // Command 1: Display extension information.
     const helloWorld = vscode.commands.registerCommand(
@@ -91,7 +97,8 @@ export function activate(context: vscode.ExtensionContext) {
                     () => vscode.workspace.isTrusted,
                     createCommandSelectionUi(),
                     { isAvailable: isAvailableDirectory },
-                    createTerminalService()
+                    createTerminalService(),
+                    terminalLifecycleManager
                 );
             } catch (error) {
                 console.error('Terminal Blueprint command selection failed:', error);
@@ -107,6 +114,7 @@ export function activate(context: vscode.ExtensionContext) {
         helloWorld,
         scanProject,
         runSuggestedCommand,
+        terminalLifecycleManager,
         output
     );
 }
