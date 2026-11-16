@@ -1,5 +1,11 @@
 
 import * as vscode from 'vscode';
+import {
+    CommandPreview,
+    CommandSelectionUi,
+    SuggestedCommandQuickPickItem,
+    selectAndPreviewSuggestedCommand
+} from './launcher/commandSelectionController';
 import { formatScanOutput } from './output/scanOutputFormatter';
 import { scanProjects } from './scanner/projectScanner';
 import { generateCommandSuggestions } from './suggestions/commandSuggestionEngine';
@@ -66,12 +72,78 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
+    const runSuggestedCommand = vscode.commands.registerCommand(
+        'terminal-blueprint.runSuggestedCommand',
+        async () => {
+            try {
+                const projects = await scanProjects();
+                if (projects.length === 0) {
+                    vscode.window.showWarningMessage(
+                        'Terminal Blueprint: Please open a project folder before selecting a command.'
+                    );
+                    return;
+                }
+
+                const suggestions = generateCommandSuggestions(projects).suggestions;
+                await selectAndPreviewSuggestedCommand(
+                    suggestions,
+                    vscode.workspace.isTrusted,
+                    createCommandSelectionUi(),
+                    { isAvailable: isAvailableDirectory }
+                );
+            } catch (error) {
+                console.error('Terminal Blueprint command selection failed:', error);
+                vscode.window.showErrorMessage(
+                    'Terminal Blueprint: Unable to select a suggested command. Check the developer console for details.'
+                );
+            }
+        }
+    );
+
     // VS Code will clean these up when the extension stops.
     context.subscriptions.push(
         helloWorld,
         scanProject,
+        runSuggestedCommand,
         output
     );
 }
 
 export function deactivate() {}
+
+function createCommandSelectionUi(): CommandSelectionUi {
+    return {
+        async pickSuggestion(items: readonly SuggestedCommandQuickPickItem[]) {
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: 'Select a verified command suggestion to preview',
+                matchOnDescription: true,
+                matchOnDetail: true
+            });
+            return selected?.suggestion;
+        },
+        async requestApproval(preview: CommandPreview) {
+            const choice = await vscode.window.showInformationMessage(
+                preview.message,
+                { modal: true },
+                'Approve',
+                'Cancel'
+            );
+            return choice === 'Approve';
+        },
+        showInformation(message: string) {
+            void vscode.window.showInformationMessage(message);
+        },
+        showWarning(message: string) {
+            void vscode.window.showWarningMessage(message);
+        }
+    };
+}
+
+async function isAvailableDirectory(uri: vscode.Uri): Promise<boolean> {
+    try {
+        const stat = await vscode.workspace.fs.stat(uri);
+        return (stat.type & vscode.FileType.Directory) !== 0;
+    } catch {
+        return false;
+    }
+}

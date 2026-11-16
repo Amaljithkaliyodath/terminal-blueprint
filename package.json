@@ -21,6 +21,10 @@
       {
         "command": "terminal-blueprint.scanProject",
         "title": "Terminal Blueprint: Scan Project"
+      },
+      {
+        "command": "terminal-blueprint.runSuggestedCommand",
+        "title": "Terminal Blueprint: Run Suggested Command"
       }
     ]
   },
