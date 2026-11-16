@@ -4,7 +4,8 @@ import {
     CommandPreview,
     CommandSelectionUi,
     SuggestedCommandQuickPickItem,
-    selectAndPreviewSuggestedCommand
+    TerminalService,
+    selectAndRunSuggestedCommand
 } from './launcher/commandSelectionController';
 import { formatScanOutput } from './output/scanOutputFormatter';
 import { scanProjects } from './scanner/projectScanner';
@@ -85,11 +86,12 @@ export function activate(context: vscode.ExtensionContext) {
                 }
 
                 const suggestions = generateCommandSuggestions(projects).suggestions;
-                await selectAndPreviewSuggestedCommand(
+                await selectAndRunSuggestedCommand(
                     suggestions,
-                    vscode.workspace.isTrusted,
+                    () => vscode.workspace.isTrusted,
                     createCommandSelectionUi(),
-                    { isAvailable: isAvailableDirectory }
+                    { isAvailable: isAvailableDirectory },
+                    createTerminalService()
                 );
             } catch (error) {
                 console.error('Terminal Blueprint command selection failed:', error);
@@ -146,4 +148,15 @@ async function isAvailableDirectory(uri: vscode.Uri): Promise<boolean> {
     } catch {
         return false;
     }
+}
+
+function createTerminalService(): TerminalService {
+    return {
+        createTerminal(options) {
+            return vscode.window.createTerminal({
+                name: options.name,
+                cwd: options.cwd
+            });
+        }
+    };
 }
