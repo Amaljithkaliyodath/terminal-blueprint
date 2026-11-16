@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 export interface PythonScanResult {
     technologies: string[];
+    hasManagePy: boolean;
 }
 
 type PythonMetadataFile =
@@ -78,7 +79,10 @@ export function analyzePythonMetadata(
         technologies.push('FastAPI');
     }
 
-    return { technologies };
+    return {
+        technologies,
+        hasManagePy: metadata['manage.py'] !== undefined
+    };
 }
 
 async function readPythonMetadata(

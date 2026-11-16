@@ -41,6 +41,7 @@ suite('Python Scanner', () => {
             'uv',
             'Django'
         ]);
+        assert.strictEqual(result.hasManagePy, true);
     });
 
     test('does not mistake unrelated metadata text for a framework dependency', () => {

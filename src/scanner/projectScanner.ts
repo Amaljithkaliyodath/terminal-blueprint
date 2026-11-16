@@ -19,6 +19,8 @@ export interface ProjectInfo {
     technologies: string[];
     packageManager?: PackageManagerDetection;
     scripts: DiscoveredScript[];
+    composerScripts: DiscoveredScript[];
+    hasDjangoManagePy: boolean;
 }
 
 export interface WorkspaceFolderInfo {
@@ -148,7 +150,9 @@ export async function scanProjectFolder(
         ...(packageJson?.packageManager
             ? { packageManager: packageJson.packageManager }
             : {}),
-        scripts: packageJson?.scripts ?? []
+        scripts: packageJson?.scripts ?? [],
+        composerScripts: php?.composerScripts ?? [],
+        hasDjangoManagePy: python?.hasManagePy ?? false
     };
 }
 

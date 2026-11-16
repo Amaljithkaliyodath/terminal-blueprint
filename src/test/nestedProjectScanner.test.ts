@@ -16,7 +16,7 @@ suite('Nested Project Scanner', () => {
             'backend/requirements.txt': 'fastapi>=0.115',
             'apps/web/package.json': JSON.stringify({ dependencies: { next: '^15.0.0' } }),
             'packages/shared/go.mod': 'module example.com/shared',
-            'services/worker/Cargo.toml': '[package]\nname = "worker"'
+            'services/worker/Cargo.toml': '[package]\nname = "worker"\nversion = "0.1.0"'
         });
 
         try {

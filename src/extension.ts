@@ -1,7 +1,8 @@
 
 import * as vscode from 'vscode';
-import { getScriptInvocation } from './scanner/packageJsonScanner';
+import { formatScanOutput } from './output/scanOutputFormatter';
 import { scanProjects } from './scanner/projectScanner';
+import { generateCommandSuggestions } from './suggestions/commandSuggestionEngine';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -40,59 +41,11 @@ export function activate(context: vscode.ExtensionContext) {
                 // Clear previous results.
                 output.clear();
 
-                output.appendLine('================================');
-                output.appendLine('      TERMINAL BLUEPRINT');
-                output.appendLine('        PROJECT SCANNER');
-                output.appendLine('================================');
-                output.appendLine('');
+                const suggestionResult = generateCommandSuggestions(projects);
 
-                // Display all detected projects.
-                for (const project of projects) {
-                    output.appendLine(
-                        `Project: ${project.name} (${project.relativePath})`
-                    );
-
-                    output.appendLine(
-                        `Working directory: ${project.workingDirectory.fsPath || project.workingDirectory.toString()}`
-                    );
-
-                    output.appendLine(
-                        `Detected: ${
-                            project.technologies.join(', ') || 'Unknown'
-                        }`
-                    );
-
-                    if (project.packageManager) {
-                        const { candidates, isAmbiguous, name, source } = project.packageManager;
-                        const packageManager = isAmbiguous
-                            ? `Ambiguous (${candidates.join(', ')})`
-                            : name ?? candidates.join(', ');
-                        output.appendLine(
-                            `Package manager: ${packageManager}${
-                                source ? ` (${source})` : ''
-                            }`
-                        );
-                    }
-
-                    if (project.scripts.length > 0) {
-                        output.appendLine('Available scripts:');
-                        for (const script of project.scripts) {
-                            const invocation = getScriptInvocation(
-                                script.name,
-                                project.packageManager
-                            );
-                            output.appendLine(
-                                `  ${script.name}: ${invocation ?? 'Invocation unavailable'} ` +
-                                `(${script.command})`
-                            );
-                        }
-                    }
-
-                    output.appendLine('--------------------------------');
+                for (const line of formatScanOutput(projects, suggestionResult)) {
+                    output.appendLine(line);
                 }
-
-                output.appendLine('');
-                output.appendLine('Scan completed. No commands executed.');
 
                 // Open the Output panel.
                 output.show();
