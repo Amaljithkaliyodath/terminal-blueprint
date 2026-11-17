@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { hasSafeMetadataFile, readSafeMetadataFile } from './safeMetadataReader';
 
 export type PackageManagerName = 'npm' | 'pnpm' | 'yarn' | 'bun';
 
@@ -62,8 +63,7 @@ const textDecoder = new TextDecoder('utf-8');
 export async function scanPackageJson(
     projectUri: vscode.Uri
 ): Promise<PackageJsonScanResult | undefined> {
-    const packageJsonUri = vscode.Uri.joinPath(projectUri, 'package.json');
-    const packageJson = await readPackageJson(packageJsonUri);
+    const packageJson = await readPackageJson(projectUri);
 
     if (!packageJson) {
         return undefined;
@@ -160,9 +160,10 @@ function collectDependencyNames(packageJson: PackageJson): Set<string> {
     );
 }
 
-async function readPackageJson(packageJsonUri: vscode.Uri): Promise<PackageJson | undefined> {
+async function readPackageJson(projectUri: vscode.Uri): Promise<PackageJson | undefined> {
     try {
-        const contents = await vscode.workspace.fs.readFile(packageJsonUri);
+        const contents = await readSafeMetadataFile(projectUri, 'package.json');
+        if (!contents) { return undefined; }
         const parsed: unknown = JSON.parse(textDecoder.decode(contents));
         return isRecord(parsed) ? parsed : undefined;
     } catch {
@@ -175,10 +176,7 @@ async function findPresentLockfiles(projectUri: vscode.Uri): Promise<string[]> {
     const entries = await Promise.all(
         Object.keys(lockfiles).map(async (fileName) => {
             try {
-                const stat = await vscode.workspace.fs.stat(
-                    vscode.Uri.joinPath(projectUri, fileName)
-                );
-                return (stat.type & vscode.FileType.File) !== 0 ? fileName : undefined;
+                return await hasSafeMetadataFile(projectUri, fileName) ? fileName : undefined;
             } catch {
                 return undefined;
             }

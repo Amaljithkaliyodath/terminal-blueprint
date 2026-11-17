@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { readSafeMetadataFile } from './safeMetadataReader';
 
 export interface JavaScanResult {
     technologies: string[];
@@ -14,9 +15,9 @@ const textDecoder = new TextDecoder('utf-8');
 
 export async function scanJavaProject(projectUri: vscode.Uri): Promise<JavaScanResult | undefined> {
     const [pomXml, buildGradle, buildGradleKts] = await Promise.all([
-        readTextFile(vscode.Uri.joinPath(projectUri, 'pom.xml')),
-        readTextFile(vscode.Uri.joinPath(projectUri, 'build.gradle')),
-        readTextFile(vscode.Uri.joinPath(projectUri, 'build.gradle.kts'))
+        readTextFile(projectUri, 'pom.xml'),
+        readTextFile(projectUri, 'build.gradle'),
+        readTextFile(projectUri, 'build.gradle.kts')
     ]);
     const metadata = { pomXml, buildGradle, buildGradleKts };
 
@@ -96,9 +97,10 @@ function hasSpringBootIndicator(contents: string): boolean {
     return /spring-boot|org\.springframework\.boot/i.test(contents);
 }
 
-async function readTextFile(uri: vscode.Uri): Promise<string | undefined> {
+async function readTextFile(projectUri: vscode.Uri, fileName: string): Promise<string | undefined> {
     try {
-        return textDecoder.decode(await vscode.workspace.fs.readFile(uri));
+        const contents = await readSafeMetadataFile(projectUri, fileName);
+        return contents ? textDecoder.decode(contents) : undefined;
     } catch {
         return undefined;
     }

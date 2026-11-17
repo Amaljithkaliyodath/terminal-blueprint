@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { readSafeMetadataFile } from './safeMetadataReader';
 
 export interface PythonScanResult {
     technologies: string[];
@@ -91,9 +92,8 @@ async function readPythonMetadata(
     const entries = await Promise.all(
         pythonMetadataFiles.map(async (fileName) => {
             try {
-                const contents = await vscode.workspace.fs.readFile(
-                    vscode.Uri.joinPath(projectUri, fileName)
-                );
+                const contents = await readSafeMetadataFile(projectUri, fileName);
+                if (!contents) { return undefined; }
                 return [fileName, textDecoder.decode(contents)] as const;
             } catch {
                 return undefined;
