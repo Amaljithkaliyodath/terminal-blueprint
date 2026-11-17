@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { CommandSuggestion, CommandSuggestionResult } from '../models/commandSuggestion';
 import { ProjectInfo } from '../scanner/projectScanner';
+import { TerminalBlueprint } from '../models/terminalBlueprint';
+import { BlueprintCompatibilityResult } from '../compatibility/blueprintCompatibilityEngine';
 
 type SidebarCategory = 'projects' | 'commands' | 'blueprints';
 type LoadState = 'unloaded' | 'loaded' | 'error';
@@ -11,8 +13,9 @@ const categories: readonly CategoryDefinition[] = [
     { category: 'blueprints', label: 'Saved Blueprints', tooltip: 'Saved blueprints will appear here in a future update.', icon: 'bookmark' }
 ];
 
-export interface SidebarData { state: LoadState; projects: readonly ProjectInfo[]; suggestionResult: CommandSuggestionResult; errorMessage?: string; }
-const unloadedData: SidebarData = { state: 'unloaded', projects: [], suggestionResult: { suggestions: [], warnings: [] } };
+export interface SidebarBlueprint { blueprint: TerminalBlueprint; compatibility?: BlueprintCompatibilityResult; compatibilityMessage?: string; }
+export interface SidebarData { state: LoadState; projects: readonly ProjectInfo[]; suggestionResult: CommandSuggestionResult; blueprints: readonly SidebarBlueprint[]; blueprintState: LoadState; errorMessage?: string; blueprintErrorMessage?: string; }
+const unloadedData: SidebarData = { state: 'unloaded', projects: [], suggestionResult: { suggestions: [], warnings: [] }, blueprints: [], blueprintState: 'unloaded' };
 
 export class TerminalBlueprintTreeItem extends vscode.TreeItem {
     public constructor(public readonly itemId: string, label: string, collapsibleState: vscode.TreeItemCollapsibleState, tooltip: string, icon?: string) {
@@ -33,8 +36,9 @@ export class TerminalBlueprintTreeProvider implements vscode.TreeDataProvider<Te
         if (!element) { return categories.map((category) => categoryItem(category)); }
         if (element.itemId === 'terminal-blueprint.category.projects') { return this.projectChildren(); }
         if (element.itemId === 'terminal-blueprint.category.commands') { return this.commandProjectChildren(); }
-        if (element.itemId === 'terminal-blueprint.category.blueprints') { return [emptyItem('blueprints', 'No blueprints loaded', 'Saved blueprints are not loaded into the sidebar yet.')]; }
+        if (element.itemId === 'terminal-blueprint.category.blueprints') { return this.blueprintChildren(); }
         if (element.itemId.startsWith('terminal-blueprint.commands-project.')) { return this.commandChildren(element.itemId.slice('terminal-blueprint.commands-project.'.length)); }
+        if (element.itemId.startsWith('terminal-blueprint.blueprint.')) { return this.blueprintDetailChildren(element.itemId.slice('terminal-blueprint.blueprint.'.length)); }
         return [];
     }
 
@@ -60,6 +64,30 @@ export class TerminalBlueprintTreeProvider implements vscode.TreeDataProvider<Te
         return project ? this.suggestionsFor(project).map((suggestion) => commandItem(suggestion)) : [];
     }
 
+    private blueprintChildren(): TerminalBlueprintTreeItem[] {
+        if (this.data.blueprintState === 'error') { return [errorItem('blueprints', this.data.blueprintErrorMessage ?? 'Unable to load saved blueprints.')]; }
+        if (this.data.blueprints.length === 0) { return [emptyItem('blueprints', this.data.blueprintState === 'unloaded' ? 'No blueprints loaded' : 'No saved blueprints', 'Create or import blueprints to display them here.')]; }
+        return this.data.blueprints.map(({ blueprint, compatibility, compatibilityMessage }) => {
+            const hint = [blueprint.technologyHints?.join(', '), blueprint.packageManagerHint].filter(Boolean).join(' · ') || 'No compatibility hints';
+            const item = new TerminalBlueprintTreeItem(`terminal-blueprint.blueprint.${blueprint.id}`, blueprint.name, vscode.TreeItemCollapsibleState.Expanded, `${blueprint.description ?? 'No description.'}\n${blueprint.commands.length} saved command(s)\nHints: ${hint}\n${compatibility ? `Compatibility: ${compatibility.status}` : compatibilityMessage ?? 'Compatibility not evaluated.'}`, 'bookmark');
+            item.description = `${blueprint.commands.length} command${blueprint.commands.length === 1 ? '' : 's'} · ${compatibility ? compatibility.status : 'Not evaluated'}`;
+            return item;
+        });
+    }
+
+    private blueprintDetailChildren(id: string): TerminalBlueprintTreeItem[] {
+        const data = this.data.blueprints.find((candidate) => candidate.blueprint.id === id);
+        if (!data) { return []; }
+        const compatibility = data.compatibility;
+        const compatibilityItem = new TerminalBlueprintTreeItem(`terminal-blueprint.blueprint-compatibility.${id}`, compatibility ? `Compatibility: ${compatibility.status}` : 'Compatibility: Not evaluated', vscode.TreeItemCollapsibleState.None, compatibility ? compatibility.reasons.join('\n') || 'No compatibility reasons were reported.' : data.compatibilityMessage ?? 'Select a project with the compatibility command to evaluate this blueprint.', compatibility ? compatibilityIcon(compatibility.status) : 'question');
+        const commands = data.blueprint.commands.map((command) => {
+            const item = new TerminalBlueprintTreeItem(`terminal-blueprint.blueprint-command.${id}.${command.id}`, command.label, vscode.TreeItemCollapsibleState.None, `${command.description ?? 'Saved blueprint command.'}\nWorking directory: ${command.relativeWorkingDirectory ?? '.'}\nCommand text is stored data and is not executable from the sidebar.`, 'terminal');
+            item.description = command.relativeWorkingDirectory ?? '.';
+            return item;
+        });
+        return [compatibilityItem, ...commands];
+    }
+
     private suggestionsFor(project: ProjectInfo): CommandSuggestion[] {
         return this.data.suggestionResult.suggestions.filter((suggestion) => suggestion.project.workingDirectory.toString() === project.workingDirectory.toString()).sort((left, right) => left.id.localeCompare(right.id));
     }
@@ -83,3 +111,4 @@ function commandItem(suggestion: CommandSuggestion): TerminalBlueprintTreeItem {
 function projectKey(project: ProjectInfo): string { return encodeURIComponent(project.workingDirectory.toString()); }
 function sortedProjects(projects: readonly ProjectInfo[]): ProjectInfo[] { return [...projects].sort((left, right) => projectKey(left).localeCompare(projectKey(right))); }
 function displayUri(uri: vscode.Uri): string { return uri.fsPath || uri.toString(); }
+function compatibilityIcon(status: BlueprintCompatibilityResult['status']): string { return status === 'COMPATIBLE' ? 'pass' : status === 'WARNING' ? 'warning' : 'error'; }

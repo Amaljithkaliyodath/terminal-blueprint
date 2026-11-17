@@ -44,7 +44,9 @@ export function activate(context: vscode.ExtensionContext) {
     });
     const sidebarDataController = new SidebarDataController(sidebarTreeProvider, {
         scanProjects,
-        generateSuggestions: generateCommandSuggestions
+        generateSuggestions: generateCommandSuggestions,
+        loadBlueprints: () => blueprintStorageService.load(),
+        fileSystem: vscode.workspace.fs
     });
     const refreshSidebar = vscode.commands.registerCommand('terminal-blueprint.refreshSidebar', () => sidebarDataController.refresh());
     const sidebarVisibility = sidebarTreeView.onDidChangeVisibility(() => {
