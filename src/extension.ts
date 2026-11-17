@@ -64,7 +64,9 @@ export function activate(context: vscode.ExtensionContext) {
     });
     const workspaceFoldersChanged = vscode.workspace.onDidChangeWorkspaceFolders(() => {
         automaticScanController.onWorkspaceFoldersChanged();
-        if (sidebarTreeView.visible) { void sidebarDataController.refresh(); }
+        // Automatic scanning already refreshes a trusted workspace when enabled.
+        // Keep the existing visible-sidebar refresh only when auto-scan is off.
+        if (sidebarTreeView.visible && !configurationService.read().autoScan) { void sidebarDataController.refresh(); }
     });
     const configurationChanged = configurationService.onDidChange((settings) => automaticScanController.onConfigurationChanged(settings));
     const workspaceTrustGranted = vscode.workspace.onDidGrantWorkspaceTrust(() => automaticScanController.onWorkspaceTrustGranted());
@@ -152,12 +154,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     const createBlueprint = vscode.commands.registerCommand(
         'terminal-blueprint.createBlueprint',
-        async () => runBlueprintManagementAction(() => createBlueprintFromInputs(blueprintManagementService))
+        async () => runBlueprintManagementAction(() => createBlueprintFromInputs(blueprintManagementService, (message) => informationService.show(message)))
     );
 
     const manageBlueprints = vscode.commands.registerCommand(
         'terminal-blueprint.manageBlueprints',
-        async () => runBlueprintManagementAction(() => manageBlueprintsFromInputs(blueprintManagementService))
+        async () => runBlueprintManagementAction(() => manageBlueprintsFromInputs(blueprintManagementService, (message) => informationService.show(message)))
     );
     const importBlueprints = vscode.commands.registerCommand('terminal-blueprint.importBlueprints', async () => runBlueprintManagementAction(async () => {
         const [uri] = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { JSON: ['json'] }, openLabel: 'Import Blueprints' }) ?? [];

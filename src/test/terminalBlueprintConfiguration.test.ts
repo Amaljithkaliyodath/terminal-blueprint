@@ -11,12 +11,14 @@ import {
 
 suite('Terminal Blueprint Configuration', () => {
     test('declares native settings with safe defaults', () => {
-        const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8')) as { contributes: { configuration: { properties: Record<string, { default: unknown }> } } };
+        const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8')) as { contributes: { configuration: { properties: Record<string, { default: unknown; description: string }> } } };
         const properties = manifest.contributes.configuration.properties;
         assert.strictEqual(properties['terminalBlueprint.autoScan'].default, false);
         assert.strictEqual(properties['terminalBlueprint.showNotifications'].default, true);
         assert.strictEqual(properties['terminalBlueprint.scanMaxDepth'].default, DEFAULT_SCAN_MAX_DEPTH);
         assert.deepStrictEqual(properties['terminalBlueprint.excludedDirectories'].default, [...MANDATORY_EXCLUDED_DIRECTORIES]);
+        assert.ok(properties['terminalBlueprint.autoScan'].description.includes('trusted workspace'));
+        assert.ok(properties['terminalBlueprint.scanMaxDepth'].description.includes('0 to 4'));
     });
 
     test('reads valid settings and normalizes exclusions without weakening mandatory exclusions', () => {

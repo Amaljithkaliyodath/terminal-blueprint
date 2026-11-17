@@ -49,6 +49,20 @@ suite('Sidebar Data Controller', () => {
         controller.dispose(); provider.dispose();
     });
 
+    test('cancels a queued refresh when invalidated so stale automatic work cannot restart', async () => {
+        const provider = new TerminalBlueprintTreeProvider();
+        const pending = deferred<ProjectInfo[]>(); let calls = 0;
+        const controller = new SidebarDataController(provider, { ...source([], { suggestions: [], warnings: [] }), async scanProjects() { calls += 1; return pending.promise; } });
+        const first = controller.refresh();
+        void controller.refresh();
+        controller.invalidate();
+        pending.resolve([]);
+        await first;
+        await Promise.resolve();
+        assert.strictEqual(calls, 1);
+        controller.dispose(); provider.dispose();
+    });
+
     test('does not create terminals while loading sidebar data', async () => {
         const terminalCount = vscode.window.terminals.length;
         const provider = new TerminalBlueprintTreeProvider(); const controller = new SidebarDataController(provider, source([project('web', '.', '/workspace')], { suggestions: [], warnings: [] }));

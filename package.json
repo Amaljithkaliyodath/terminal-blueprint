@@ -19,7 +19,7 @@
         "terminalBlueprint.autoScan": {
           "type": "boolean",
           "default": false,
-          "description": "Automatically perform a read-only project scan when a workspace opens. This setting is not active yet."
+          "description": "Automatically perform a read-only project scan when a trusted workspace opens."
         },
         "terminalBlueprint.showNotifications": {
           "type": "boolean",
@@ -31,13 +31,13 @@
           "default": 4,
           "minimum": 0,
           "maximum": 4,
-          "description": "Maximum nested directory depth for project scanning. Existing scanner behavior is unchanged in this release."
+          "description": "Maximum nested directory depth for project scanning (0 to 4)."
         },
         "terminalBlueprint.excludedDirectories": {
           "type": "array",
           "default": [".git", ".next", ".venv", "__pycache__", "build", "coverage", "dist", "env", "node_modules", "out", "target", "venv"],
           "items": { "type": "string" },
-          "description": "Directory names to exclude from future project scans. Built-in protected exclusions always remain active."
+          "description": "Directory names to exclude from project scans. Built-in protected exclusions always remain active."
         }
       }
     },

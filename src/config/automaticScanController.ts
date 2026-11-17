@@ -24,6 +24,7 @@ export class AutomaticScanController implements vscode.Disposable {
     public onActivation(): void { this.requestIfEnabled(); }
 
     public onWorkspaceFoldersChanged(): void {
+        if (this.disposed) { return; }
         this.target.invalidate();
         this.requestIfEnabled();
     }
@@ -31,6 +32,7 @@ export class AutomaticScanController implements vscode.Disposable {
     public onWorkspaceTrustGranted(): void { this.requestIfEnabled(); }
 
     public onConfigurationChanged(settings: TerminalBlueprintSettings): void {
+        if (this.disposed) { return; }
         const previous = this.settings;
         this.settings = settings;
         const scanSettingsChanged = previous.scanMaxDepth !== settings.scanMaxDepth ||

@@ -26,7 +26,11 @@ export class SidebarDataController implements vscode.Disposable {
         });
         return operation;
     }
-    public invalidate(): void { this.generation += 1; if (!this.disposed) { this.provider.setData(emptyData('unloaded')); } }
+    public invalidate(): void {
+        this.generation += 1;
+        this.refreshQueued = false;
+        if (!this.disposed) { this.provider.setData(emptyData('unloaded')); }
+    }
     public dispose(): void { this.disposed = true; this.generation += 1; }
     private async load(generation: number): Promise<void> {
         const [projectsResult, blueprintsResult] = await Promise.allSettled([this.source.scanProjects(), this.source.loadBlueprints()]);

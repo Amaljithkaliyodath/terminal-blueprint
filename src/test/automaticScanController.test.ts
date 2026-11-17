@@ -21,7 +21,7 @@ suite('Automatic Scan Controller', () => {
         controller.onWorkspaceFoldersChanged(); assert.strictEqual(target.invalidations, 1); assert.strictEqual(target.refreshes, 2);
         environment.trusted = false; controller.onWorkspaceFoldersChanged(); assert.strictEqual(target.refreshes, 2);
         environment.trusted = true; controller.onWorkspaceTrustGranted(); assert.strictEqual(target.refreshes, 3);
-        controller.dispose(); controller.onWorkspaceFoldersChanged(); assert.strictEqual(target.refreshes, 3);
+        controller.dispose(); controller.onWorkspaceFoldersChanged(); assert.strictEqual(target.refreshes, 3); assert.strictEqual(target.invalidations, 2);
     });
 
     test('invalidates stale data when settings change and does not scan after disabling auto-scan', () => {
