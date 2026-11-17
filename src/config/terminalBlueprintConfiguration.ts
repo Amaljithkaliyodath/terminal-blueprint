@@ -22,6 +22,10 @@ export interface ConfigurationApi {
     onDidChangeConfiguration(listener: (event: vscode.ConfigurationChangeEvent) => void): vscode.Disposable;
 }
 
+export interface InformationMessageSink {
+    showInformationMessage(message: string): Thenable<unknown>;
+}
+
 export function readTerminalBlueprintSettings(source: ConfigurationSource = vscode.workspace.getConfiguration('terminalBlueprint')): TerminalBlueprintSettings {
     const excluded = normalizeExcludedDirectories(source.get<unknown>('excludedDirectories'));
     return {
@@ -48,6 +52,11 @@ export class TerminalBlueprintConfigurationService implements vscode.Disposable 
     }
 
     public dispose(): void { this.subscription.dispose(); this.changedEmitter.dispose(); }
+}
+
+export class TerminalBlueprintInformationService {
+    public constructor(private readonly readSettings: () => TerminalBlueprintSettings, private readonly sink: InformationMessageSink = vscode.window) {}
+    public show(message: string): void { if (this.readSettings().showNotifications) { void this.sink.showInformationMessage(message); } }
 }
 
 export function createScanLimits(settings: TerminalBlueprintSettings): ScanLimits {
