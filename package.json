@@ -41,6 +41,10 @@
       {
         "command": "terminal-blueprint.exportBlueprints",
         "title": "Terminal Blueprint: Export Blueprints"
+      },
+      {
+        "command": "terminal-blueprint.checkBlueprintCompatibility",
+        "title": "Terminal Blueprint: Check Blueprint Compatibility"
       }
     ]
   },

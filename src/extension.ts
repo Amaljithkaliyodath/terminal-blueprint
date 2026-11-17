@@ -15,6 +15,8 @@ import { scanProjects } from './scanner/projectScanner';
 import { generateCommandSuggestions } from './suggestions/commandSuggestionEngine';
 import { BlueprintStorageService } from './storage/blueprintStorageService';
 import { BlueprintTransferService, DuplicateBlueprintDecision } from './blueprints/blueprintTransferService';
+import { inspectBlueprintCompatibility, BlueprintCompatibilityUi } from './compatibility/blueprintCompatibilityController';
+import { formatBlueprintCompatibilityOutput } from './output/blueprintCompatibilityOutputFormatter';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -141,6 +143,34 @@ export function activate(context: vscode.ExtensionContext) {
         const selected = await vscode.window.showQuickPick(blueprints.map((blueprint) => ({ label: blueprint.name, blueprint })));
         if (selected) { await blueprintTransferService.exportOne(uri, selected.blueprint.id); }
     }));
+    const checkBlueprintCompatibility = vscode.commands.registerCommand('terminal-blueprint.checkBlueprintCompatibility', async () => {
+        try {
+            const inspection = await inspectBlueprintCompatibility(
+                blueprintStorageService,
+                scanProjects,
+                createBlueprintCompatibilityUi(),
+                vscode.workspace.fs
+            );
+            if (inspection.outcome === 'no-blueprints') {
+                vscode.window.showInformationMessage('Terminal Blueprint: No saved blueprints are available to inspect.');
+                return;
+            }
+            if (inspection.outcome === 'no-projects') {
+                vscode.window.showWarningMessage('Terminal Blueprint: Please open a project folder before checking compatibility.');
+                return;
+            }
+            if (inspection.outcome === 'cancelled') { return; }
+            if (inspection.outcome !== 'displayed') { return; }
+            output.clear();
+            for (const line of formatBlueprintCompatibilityOutput(inspection.blueprint, inspection.project, inspection.compatibility)) {
+                output.appendLine(line);
+            }
+            output.show();
+        } catch (error) {
+            console.error('Terminal Blueprint compatibility inspection failed:', error);
+            vscode.window.showErrorMessage('Terminal Blueprint: Unable to inspect blueprint compatibility. Existing blueprints were not changed.');
+        }
+    });
 
     // VS Code will clean these up when the extension stops.
     context.subscriptions.push(
@@ -151,6 +181,7 @@ export function activate(context: vscode.ExtensionContext) {
         manageBlueprints,
         importBlueprints,
         exportBlueprints,
+        checkBlueprintCompatibility,
         terminalLifecycleManager,
         output
     );
@@ -196,6 +227,23 @@ function createCommandSelectionUi(): CommandSelectionUi {
         },
         showWarning(message: string) {
             void vscode.window.showWarningMessage(message);
+        }
+    };
+}
+
+function createBlueprintCompatibilityUi(): BlueprintCompatibilityUi {
+    return {
+        async pickBlueprint(items) {
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: 'Select a saved blueprint to inspect', matchOnDescription: true, matchOnDetail: true
+            });
+            return selected?.blueprint;
+        },
+        async pickProject(items) {
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: 'Select a detected project for compatibility inspection', matchOnDescription: true, matchOnDetail: true
+            });
+            return selected?.project;
         }
     };
 }
