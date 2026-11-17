@@ -61,7 +61,38 @@ suite('Blueprint Transfer Service', () => {
         await Promise.all([service.importFile(uri('a.json'), async () => 'skip'), service.importFile(uri('b.json'), async () => 'skip')]);
         assert.deepStrictEqual((await storage.load()).blueprints.map((item) => item.id), ['a', 'b']); assert.strictEqual(vscode.window.terminals.length, terminalCount);
     });
+
+    test('asks for a decision when a concurrent import creates a duplicate before its queued update', async () => {
+        const terminalCount = vscode.window.terminals.length;
+
+        const skipped = await importAfterConcurrentCollision('skip');
+        assert.strictEqual(skipped.firstResult, 1); assert.strictEqual(skipped.secondResult, 0); assert.strictEqual(skipped.decisions, 1);
+        assert.deepStrictEqual(skipped.blueprints.map((item) => item.id), ['same']);
+
+        const copied = await importAfterConcurrentCollision('copy');
+        assert.strictEqual(copied.firstResult, 1); assert.strictEqual(copied.secondResult, 1); assert.strictEqual(copied.decisions, 1);
+        assert.strictEqual(copied.blueprints.length, 2); assert.notStrictEqual(copied.blueprints[0].id, copied.blueprints[1].id);
+        assert.notStrictEqual(copied.blueprints[0].commands[0].id, copied.blueprints[1].commands[0].id);
+
+        const cancelled = await importAfterConcurrentCollision('cancel');
+        assert.strictEqual(cancelled.firstResult, 1); assert.strictEqual(cancelled.secondResult, 0); assert.strictEqual(cancelled.decisions, 1);
+        assert.deepStrictEqual(cancelled.blueprints.map((item) => item.id), ['same']);
+        assert.strictEqual(vscode.window.terminals.length, terminalCount);
+    });
 });
+
+async function importAfterConcurrentCollision(decision: 'skip' | 'copy' | 'cancel'): Promise<{ firstResult: number; secondResult: number; decisions: number; blueprints: TerminalBlueprint[] }> {
+    const storage = new CoordinatedMemoryStorage(); const files = new MemoryFiles(); files.set(uri('same.json'), JSON.stringify(blueprint('same')));
+    let id = 1; let decisions = 0;
+    const service = new BlueprintTransferService(storage, files, () => `new-${id++}`);
+    const first = service.importFile(uri('same.json'), async () => 'skip');
+    await storage.waitForFirstUpdate();
+    const second = service.importFile(uri('same.json'), async () => { decisions += 1; return decision; });
+    await storage.waitForSecondUpdate();
+    storage.releaseFirstUpdate();
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+    return { firstResult, secondResult, decisions, blueprints: (await storage.load()).blueprints };
+}
 
 function blueprint(id: string): TerminalBlueprint { return { id, name: id, schemaVersion: TERMINAL_BLUEPRINT_SCHEMA_VERSION, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', commands: [{ id: `${id}-command`, label: 'Dev', command: 'npm run dev' }], technologyHints: ['Next.js'], packageManagerHint: 'npm' }; }
 function documentWith(blueprints: TerminalBlueprint[]): TerminalBlueprintStorageDocument { return { schemaVersion: TERMINAL_BLUEPRINT_SCHEMA_VERSION, blueprints }; }
@@ -76,8 +107,36 @@ class MemoryFiles implements BlueprintTransferFileSystem {
     text(value: vscode.Uri): string | undefined { const result = this.data.get(value.toString()); return result ? new TextDecoder().decode(result) : undefined; }
 }
 class MemoryStorage implements BlueprintManagementStorage {
-    private document: TerminalBlueprintStorageDocument; private queue: Promise<void> = Promise.resolve();
+    protected document: TerminalBlueprintStorageDocument; protected queue: Promise<void> = Promise.resolve();
     constructor(document: TerminalBlueprintStorageDocument = documentWith([])) { this.document = document; }
     async load(): Promise<TerminalBlueprintStorageDocument> { return validateBlueprintStorageDocument(this.document); }
     update(updater: (document: TerminalBlueprintStorageDocument) => TerminalBlueprintStorageDocument): Promise<TerminalBlueprintStorageDocument> { const operation = this.queue.then(() => this.document = validateBlueprintStorageDocument(updater(this.document))); this.queue = operation.then(() => undefined, () => undefined); return operation; }
+}
+
+class CoordinatedMemoryStorage extends MemoryStorage {
+    private firstUpdate = true;
+    private readonly firstUpdateStarted = createDeferred();
+    private readonly secondUpdateQueued = createDeferred();
+    private readonly releaseFirstUpdateSignal = createDeferred();
+
+    public waitForFirstUpdate(): Promise<void> { return this.firstUpdateStarted.promise; }
+    public waitForSecondUpdate(): Promise<void> { return this.secondUpdateQueued.promise; }
+    public releaseFirstUpdate(): void { this.releaseFirstUpdateSignal.resolve(); }
+
+    public update(updater: (document: TerminalBlueprintStorageDocument) => TerminalBlueprintStorageDocument): Promise<TerminalBlueprintStorageDocument> {
+        const waitForRelease = this.firstUpdate; this.firstUpdate = false;
+        if (!waitForRelease) { this.secondUpdateQueued.resolve(); }
+        const operation = this.queue.then(async () => {
+            if (waitForRelease) { this.firstUpdateStarted.resolve(); await this.releaseFirstUpdateSignal.promise; }
+            this.document = validateBlueprintStorageDocument(updater(this.document));
+            return this.document;
+        });
+        this.queue = operation.then(() => undefined, () => undefined);
+        return operation;
+    }
+}
+
+function createDeferred(): { promise: Promise<void>; resolve: () => void } {
+    let resolve!: () => void;
+    return { promise: new Promise<void>((complete) => { resolve = complete; }), resolve };
 }

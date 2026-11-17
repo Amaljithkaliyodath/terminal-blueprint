@@ -20,6 +20,13 @@ export class BlueprintTransferError extends Error {
     }
 }
 
+class BlueprintImportConflictError extends Error {
+    public constructor(public readonly blueprints: readonly TerminalBlueprint[]) {
+        super('An imported blueprint conflicts with the latest local storage.');
+        this.name = 'BlueprintImportConflictError';
+    }
+}
+
 export class BlueprintTransferService {
     public constructor(
         private readonly storage: BlueprintManagementStorage,
@@ -47,24 +54,44 @@ export class BlueprintTransferService {
             const parsed: unknown = JSON.parse(decoder.decode(bytes));
             incoming = validateBlueprintStorageDocument(isSingleBlueprint(parsed) ? { schemaVersion: TERMINAL_BLUEPRINT_SCHEMA_VERSION, blueprints: [parsed] } : parsed);
         } catch (error) { throw new BlueprintTransferError('Selected blueprint file is malformed or unsupported.', error); }
-        const existingIds = new Set((await this.storage.load()).blueprints.map((blueprint) => blueprint.id));
         const decisions = new Map<string, DuplicateBlueprintDecision>();
-        for (const blueprint of incoming.blueprints) {
-            if (existingIds.has(blueprint.id)) {
-                const decision = await decideDuplicate(blueprint);
-                if (decision === 'cancel') { return 0; }
-                decisions.set(blueprint.id, decision);
+        const maximumAttempts = incoming.blueprints.length + 1;
+        for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+            try {
+                return await this.commitImport(incoming, decisions);
+            } catch (error) {
+                if (!(error instanceof BlueprintImportConflictError)) { throw error; }
+                for (const blueprint of error.blueprints) {
+                    const decision = await decideDuplicate(blueprint);
+                    if (decision === 'cancel') { return 0; }
+                    decisions.set(blueprint.id, decision);
+                }
             }
         }
+        throw new BlueprintTransferError('Local blueprint storage changed repeatedly during import. Please try again.');
+    }
+
+    private async commitImport(
+        incoming: TerminalBlueprintStorageDocument,
+        decisions: ReadonlyMap<string, DuplicateBlueprintDecision>
+    ): Promise<number> {
         let imported = 0;
         await this.storage.update((current) => {
             const blueprints = [...current.blueprints];
+            const conflicts = incoming.blueprints.filter((blueprint) =>
+                blueprints.some((candidate) => candidate.id === blueprint.id) && !decisions.has(blueprint.id)
+            );
+            if (conflicts.length > 0) { throw new BlueprintImportConflictError(conflicts); }
             for (const blueprint of incoming.blueprints) {
                 if (blueprints.some((candidate) => candidate.id === blueprint.id)) {
-                    if (decisions.get(blueprint.id) === 'copy') { blueprints.push(copyBlueprint(blueprint, blueprints, this.createId)); imported += 1; }
+                    if (decisions.get(blueprint.id) === 'copy') {
+                        blueprints.push(copyBlueprint(blueprint, blueprints, this.createId));
+                        imported += 1;
+                    }
                     continue;
                 }
-                blueprints.push(blueprint); imported += 1;
+                blueprints.push(blueprint);
+                imported += 1;
             }
             return { ...current, blueprints };
         });
