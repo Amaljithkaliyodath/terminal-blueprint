@@ -1,12 +1,10 @@
 import * as vscode from 'vscode';
+import { MANDATORY_IGNORED_DIRECTORY_NAMES, type ScanLimits } from '../scanner/projectScanner';
 
 export const DEFAULT_SCAN_MAX_DEPTH = 4;
 export const MIN_SCAN_MAX_DEPTH = 0;
 export const MAX_SCAN_MAX_DEPTH = 4;
-export const MANDATORY_EXCLUDED_DIRECTORIES = [
-    '.git', '.next', '.venv', '__pycache__', 'build', 'coverage', 'dist', 'env',
-    'node_modules', 'out', 'target', 'venv'
-] as const;
+export const MANDATORY_EXCLUDED_DIRECTORIES = MANDATORY_IGNORED_DIRECTORY_NAMES;
 
 export interface TerminalBlueprintSettings {
     autoScan: boolean;
@@ -50,6 +48,10 @@ export class TerminalBlueprintConfigurationService implements vscode.Disposable 
     }
 
     public dispose(): void { this.subscription.dispose(); this.changedEmitter.dispose(); }
+}
+
+export function createScanLimits(settings: TerminalBlueprintSettings): ScanLimits {
+    return { maxDepth: settings.scanMaxDepth, maxDirectories: 500, excludedDirectoryNames: settings.excludedDirectories };
 }
 
 function readBoolean(value: unknown, defaultValue: boolean): boolean { return typeof value === 'boolean' ? value : defaultValue; }

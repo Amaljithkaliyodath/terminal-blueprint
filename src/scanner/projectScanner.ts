@@ -31,14 +31,15 @@ export interface WorkspaceFolderInfo {
 export interface ScanLimits {
     maxDepth: number;
     maxDirectories: number;
+    excludedDirectoryNames?: readonly string[];
 }
 
-const defaultScanLimits: ScanLimits = {
+export const DEFAULT_SCAN_LIMITS: ScanLimits = {
     maxDepth: 4,
     maxDirectories: 500
 };
 
-const ignoredDirectoryNames = new Set([
+export const MANDATORY_IGNORED_DIRECTORY_NAMES = [
     '.git',
     '.next',
     '.venv',
@@ -51,7 +52,9 @@ const ignoredDirectoryNames = new Set([
     'out',
     'target',
     'venv'
-]);
+] as const;
+const hardMaximumScanDepth = 4;
+const hardMaximumDirectoryCount = 500;
 
 const projectMarkerFiles = new Set([
     'Cargo.toml',
@@ -72,7 +75,7 @@ const projectMarkerFiles = new Set([
 ]);
 
 // Detect technologies in opened workspace folders.
-export async function scanProjects(): Promise<ProjectInfo[]> {
+export async function scanProjects(limits: ScanLimits = DEFAULT_SCAN_LIMITS): Promise<ProjectInfo[]> {
 
     const folders = vscode.workspace.workspaceFolders;
 
@@ -81,7 +84,7 @@ export async function scanProjects(): Promise<ProjectInfo[]> {
         return [];
     }
 
-    return scanWorkspaceFolders(folders);
+    return scanWorkspaceFolders(folders, limits);
 }
 
 export async function scanProjectFolder(
@@ -158,12 +161,13 @@ export async function scanProjectFolder(
 
 export async function scanWorkspaceFolders(
     folders: readonly WorkspaceFolderInfo[],
-    limits: ScanLimits = defaultScanLimits
+    limits: ScanLimits = DEFAULT_SCAN_LIMITS
 ): Promise<ProjectInfo[]> {
+    const effectiveLimits = normalizeScanLimits(limits);
     const projects: ProjectInfo[] = [];
 
     for (const folder of folders) {
-        projects.push(...await scanWorkspaceFolder(folder, limits));
+        projects.push(...await scanWorkspaceFolder(folder, effectiveLimits));
     }
 
     return projects;
@@ -171,9 +175,10 @@ export async function scanWorkspaceFolders(
 
 export async function scanWorkspaceFolder(
     folder: WorkspaceFolderInfo,
-    limits: ScanLimits = defaultScanLimits
+    limits: ScanLimits = DEFAULT_SCAN_LIMITS
 ): Promise<ProjectInfo[]> {
-    const discoveredFolders = await discoverProjectFolders(folder, limits);
+    const effectiveLimits = normalizeScanLimits(limits);
+    const discoveredFolders = await discoverProjectFolders(folder, effectiveLimits);
     const projects: ProjectInfo[] = [];
 
     for (const discoveredFolder of discoveredFolders) {
@@ -215,7 +220,7 @@ async function discoverProjectFolders(
                 break;
             }
 
-            if (!isTraversableDirectory(entryName, entryType)) {
+            if (!isTraversableDirectory(entryName, entryType, limits.excludedDirectoryNames ?? MANDATORY_IGNORED_DIRECTORY_NAMES)) {
                 continue;
             }
 
@@ -261,10 +266,23 @@ async function readDirectory(
     }
 }
 
-function isTraversableDirectory(name: string, type: vscode.FileType): boolean {
+function isTraversableDirectory(name: string, type: vscode.FileType, excludedDirectoryNames: readonly string[]): boolean {
     return (type & vscode.FileType.Directory) !== 0 &&
         (type & vscode.FileType.SymbolicLink) === 0 &&
-        !ignoredDirectoryNames.has(name);
+        !excludedDirectoryNames.includes(name);
+}
+
+function normalizeScanLimits(limits: ScanLimits): ScanLimits {
+    const maxDepth = Number.isInteger(limits.maxDepth) && limits.maxDepth >= 0
+        ? Math.min(limits.maxDepth, hardMaximumScanDepth) : DEFAULT_SCAN_LIMITS.maxDepth;
+    const maxDirectories = Number.isInteger(limits.maxDirectories) && limits.maxDirectories > 0
+        ? Math.min(limits.maxDirectories, hardMaximumDirectoryCount) : DEFAULT_SCAN_LIMITS.maxDirectories;
+    const additionalExclusions = (limits.excludedDirectoryNames ?? []).filter(isSafeDirectoryName);
+    return { maxDepth, maxDirectories, excludedDirectoryNames: [...new Set([...MANDATORY_IGNORED_DIRECTORY_NAMES, ...additionalExclusions])] };
+}
+
+function isSafeDirectoryName(value: string): boolean {
+    return /^(?!\.{1,2}$)[A-Za-z0-9._-]{1,100}$/.test(value);
 }
 
 function containsProjectMarker(entries: readonly [string, vscode.FileType][]): boolean {

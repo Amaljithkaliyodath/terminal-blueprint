@@ -11,7 +11,7 @@ import { TerminalLifecycleManager } from './launcher/terminalLifecycleManager';
 import { createBlueprintFromInputs, manageBlueprintsFromInputs } from './blueprints/blueprintManagementController';
 import { BlueprintManagementService } from './blueprints/blueprintManagementService';
 import { formatScanOutput } from './output/scanOutputFormatter';
-import { scanProjects } from './scanner/projectScanner';
+import { scanProjectsWithSettings } from './scanner/configuredProjectScanner';
 import { generateCommandSuggestions } from './suggestions/commandSuggestionEngine';
 import { BlueprintStorageService } from './storage/blueprintStorageService';
 import { BlueprintTransferService, DuplicateBlueprintDecision } from './blueprints/blueprintTransferService';
@@ -39,13 +39,14 @@ export function activate(context: vscode.ExtensionContext) {
     const blueprintManagementService = new BlueprintManagementService(blueprintStorageService);
     const blueprintTransferService = new BlueprintTransferService(blueprintStorageService);
     const configurationService = new TerminalBlueprintConfigurationService();
+    const scanConfiguredProjects = () => scanProjectsWithSettings(() => configurationService.read());
     const sidebarTreeProvider = new TerminalBlueprintTreeProvider();
     const sidebarTreeView = vscode.window.createTreeView('terminalBlueprint.sidebar', {
         treeDataProvider: sidebarTreeProvider,
         showCollapseAll: false
     });
     const sidebarDataController = new SidebarDataController(sidebarTreeProvider, {
-        scanProjects,
+        scanProjects: scanConfiguredProjects,
         generateSuggestions: generateCommandSuggestions,
         loadBlueprints: () => blueprintStorageService.load(),
         fileSystem: vscode.workspace.fs
@@ -58,6 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
         sidebarDataController.invalidate();
         if (sidebarTreeView.visible) { void sidebarDataController.refresh(); }
     });
+    const configurationChanged = configurationService.onDidChange(() => sidebarDataController.invalidate());
 
     // Command 1: Display extension information.
     const helloWorld = vscode.commands.registerCommand(
@@ -74,7 +76,7 @@ export function activate(context: vscode.ExtensionContext) {
         'terminal-blueprint.scanProject',
         async () => {
             try {
-                const projects = await scanProjects();
+                const projects = await scanConfiguredProjects();
 
                 // Check whether a workspace is open.
                 if (projects.length === 0) {
@@ -116,7 +118,7 @@ export function activate(context: vscode.ExtensionContext) {
         'terminal-blueprint.runSuggestedCommand',
         async () => {
             try {
-                const projects = await scanProjects();
+                const projects = await scanConfiguredProjects();
                 if (projects.length === 0) {
                     vscode.window.showWarningMessage(
                         'Terminal Blueprint: Please open a project folder before selecting a command.'
@@ -171,7 +173,7 @@ export function activate(context: vscode.ExtensionContext) {
         try {
             const inspection = await inspectBlueprintCompatibility(
                 blueprintStorageService,
-                scanProjects,
+                scanConfiguredProjects,
                 createBlueprintCompatibilityUi(),
                 vscode.workspace.fs
             );
@@ -199,7 +201,7 @@ export function activate(context: vscode.ExtensionContext) {
         try {
             await selectAndRunBlueprint(
                 blueprintStorageService,
-                scanProjects,
+                scanConfiguredProjects,
                 () => vscode.workspace.isTrusted,
                 createBlueprintExecutionUi(),
                 vscode.workspace.fs,
@@ -235,6 +237,7 @@ export function activate(context: vscode.ExtensionContext) {
         sidebarVisibility,
         workspaceFoldersChanged,
         configurationService,
+        configurationChanged,
         terminalLifecycleManager,
         output
     );
