@@ -20,6 +20,7 @@ import { formatBlueprintCompatibilityOutput } from './output/blueprintCompatibil
 import { BlueprintExecutionUi, selectAndRunBlueprint } from './launcher/blueprintExecutionController';
 import { TerminalBlueprintTreeProvider } from './sidebar/terminalBlueprintTreeProvider';
 import { SidebarDataController } from './sidebar/sidebarDataController';
+import { TerminalBlueprintConfigurationService } from './config/terminalBlueprintConfiguration';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -37,6 +38,7 @@ export function activate(context: vscode.ExtensionContext) {
     const blueprintStorageService = new BlueprintStorageService(context.globalStorageUri);
     const blueprintManagementService = new BlueprintManagementService(blueprintStorageService);
     const blueprintTransferService = new BlueprintTransferService(blueprintStorageService);
+    const configurationService = new TerminalBlueprintConfigurationService();
     const sidebarTreeProvider = new TerminalBlueprintTreeProvider();
     const sidebarTreeView = vscode.window.createTreeView('terminalBlueprint.sidebar', {
         treeDataProvider: sidebarTreeProvider,
@@ -232,6 +234,7 @@ export function activate(context: vscode.ExtensionContext) {
         sidebarDataController,
         sidebarVisibility,
         workspaceFoldersChanged,
+        configurationService,
         terminalLifecycleManager,
         output
     );
