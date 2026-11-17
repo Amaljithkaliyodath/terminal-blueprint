@@ -8,9 +8,13 @@ import {
     selectAndRunSuggestedCommand
 } from './launcher/commandSelectionController';
 import { TerminalLifecycleManager } from './launcher/terminalLifecycleManager';
+import { createBlueprintFromInputs, manageBlueprintsFromInputs } from './blueprints/blueprintManagementController';
+import { BlueprintManagementService } from './blueprints/blueprintManagementService';
 import { formatScanOutput } from './output/scanOutputFormatter';
 import { scanProjects } from './scanner/projectScanner';
 import { generateCommandSuggestions } from './suggestions/commandSuggestionEngine';
+import { BlueprintStorageService } from './storage/blueprintStorageService';
+import { BlueprintTransferService, DuplicateBlueprintDecision } from './blueprints/blueprintTransferService';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -25,6 +29,9 @@ export function activate(context: vscode.ExtensionContext) {
             return vscode.window.onDidCloseTerminal(listener);
         }
     });
+    const blueprintStorageService = new BlueprintStorageService(context.globalStorageUri);
+    const blueprintManagementService = new BlueprintManagementService(blueprintStorageService);
+    const blueprintTransferService = new BlueprintTransferService(blueprintStorageService);
 
     // Command 1: Display extension information.
     const helloWorld = vscode.commands.registerCommand(
@@ -109,17 +116,61 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
+    const createBlueprint = vscode.commands.registerCommand(
+        'terminal-blueprint.createBlueprint',
+        async () => runBlueprintManagementAction(() => createBlueprintFromInputs(blueprintManagementService))
+    );
+
+    const manageBlueprints = vscode.commands.registerCommand(
+        'terminal-blueprint.manageBlueprints',
+        async () => runBlueprintManagementAction(() => manageBlueprintsFromInputs(blueprintManagementService))
+    );
+    const importBlueprints = vscode.commands.registerCommand('terminal-blueprint.importBlueprints', async () => runBlueprintManagementAction(async () => {
+        const [uri] = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { JSON: ['json'] }, openLabel: 'Import Blueprints' }) ?? [];
+        if (!uri) { return; }
+        const imported = await blueprintTransferService.importFile(uri, chooseDuplicateBlueprintAction);
+        vscode.window.showInformationMessage(`Terminal Blueprint: Imported ${imported} blueprint(s).`);
+    }));
+    const exportBlueprints = vscode.commands.registerCommand('terminal-blueprint.exportBlueprints', async () => runBlueprintManagementAction(async () => {
+        const choice = await vscode.window.showQuickPick([{ label: 'Export all blueprints', value: 'all' }, { label: 'Export one blueprint', value: 'one' }]);
+        if (!choice) { return; }
+        const uri = await vscode.window.showSaveDialog({ filters: { JSON: ['json'] }, saveLabel: 'Export Blueprints' });
+        if (!uri) { return; }
+        if (choice.value === 'all') { await blueprintTransferService.exportAll(uri); return; }
+        const blueprints = await blueprintManagementService.list();
+        const selected = await vscode.window.showQuickPick(blueprints.map((blueprint) => ({ label: blueprint.name, blueprint })));
+        if (selected) { await blueprintTransferService.exportOne(uri, selected.blueprint.id); }
+    }));
+
     // VS Code will clean these up when the extension stops.
     context.subscriptions.push(
         helloWorld,
         scanProject,
         runSuggestedCommand,
+        createBlueprint,
+        manageBlueprints,
+        importBlueprints,
+        exportBlueprints,
         terminalLifecycleManager,
         output
     );
 }
 
 export function deactivate() {}
+
+async function runBlueprintManagementAction(action: () => Promise<void>): Promise<void> {
+    try {
+        await action();
+    } catch (error) {
+        console.error('Terminal Blueprint blueprint management failed:', error);
+        vscode.window.showErrorMessage('Terminal Blueprint: Unable to update local blueprints. Existing data was not changed.');
+    }
+}
+
+async function chooseDuplicateBlueprintAction(): Promise<DuplicateBlueprintDecision> {
+    const choice = await vscode.window.showWarningMessage('A blueprint with this ID already exists.', { modal: true }, 'Skip', 'Import Copy', 'Cancel');
+    return choice === 'Import Copy' ? 'copy' : choice === 'Skip' ? 'skip' : 'cancel';
+}
 
 function createCommandSelectionUi(): CommandSelectionUi {
     return {
