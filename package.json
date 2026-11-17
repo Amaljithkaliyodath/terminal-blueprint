@@ -45,6 +45,10 @@
       {
         "command": "terminal-blueprint.checkBlueprintCompatibility",
         "title": "Terminal Blueprint: Check Blueprint Compatibility"
+      },
+      {
+        "command": "terminal-blueprint.runBlueprint",
+        "title": "Terminal Blueprint: Run Blueprint"
       }
     ]
   },
