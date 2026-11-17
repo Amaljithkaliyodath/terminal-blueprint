@@ -18,6 +18,7 @@ import { BlueprintTransferService, DuplicateBlueprintDecision } from './blueprin
 import { inspectBlueprintCompatibility, BlueprintCompatibilityUi } from './compatibility/blueprintCompatibilityController';
 import { formatBlueprintCompatibilityOutput } from './output/blueprintCompatibilityOutputFormatter';
 import { BlueprintExecutionUi, selectAndRunBlueprint } from './launcher/blueprintExecutionController';
+import { TerminalBlueprintTreeProvider } from './sidebar/terminalBlueprintTreeProvider';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -35,6 +36,11 @@ export function activate(context: vscode.ExtensionContext) {
     const blueprintStorageService = new BlueprintStorageService(context.globalStorageUri);
     const blueprintManagementService = new BlueprintManagementService(blueprintStorageService);
     const blueprintTransferService = new BlueprintTransferService(blueprintStorageService);
+    const sidebarTreeProvider = new TerminalBlueprintTreeProvider();
+    const sidebarTreeView = vscode.window.createTreeView('terminalBlueprint.sidebar', {
+        treeDataProvider: sidebarTreeProvider,
+        showCollapseAll: false
+    });
 
     // Command 1: Display extension information.
     const helloWorld = vscode.commands.registerCommand(
@@ -205,6 +211,8 @@ export function activate(context: vscode.ExtensionContext) {
         exportBlueprints,
         checkBlueprintCompatibility,
         runBlueprint,
+        sidebarTreeProvider,
+        sidebarTreeView,
         terminalLifecycleManager,
         output
     );

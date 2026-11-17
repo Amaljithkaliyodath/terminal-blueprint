@@ -13,6 +13,23 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "terminal-blueprint",
+          "title": "Terminal Blueprint",
+          "icon": "resources/terminal-blueprint.svg"
+        }
+      ]
+    },
+    "views": {
+      "terminal-blueprint": [
+        {
+          "id": "terminalBlueprint.sidebar",
+          "name": "Terminal Blueprint"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "terminal-blueprint.helloWorld",
