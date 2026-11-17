@@ -18,6 +18,8 @@ import { BlueprintTransferService, DuplicateBlueprintDecision } from './blueprin
 import { inspectBlueprintCompatibility, BlueprintCompatibilityUi } from './compatibility/blueprintCompatibilityController';
 import { formatBlueprintCompatibilityOutput } from './output/blueprintCompatibilityOutputFormatter';
 import { BlueprintExecutionUi, selectAndRunBlueprint } from './launcher/blueprintExecutionController';
+import { TerminalBlueprintTreeProvider } from './sidebar/terminalBlueprintTreeProvider';
+import { SidebarDataController } from './sidebar/sidebarDataController';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -35,6 +37,25 @@ export function activate(context: vscode.ExtensionContext) {
     const blueprintStorageService = new BlueprintStorageService(context.globalStorageUri);
     const blueprintManagementService = new BlueprintManagementService(blueprintStorageService);
     const blueprintTransferService = new BlueprintTransferService(blueprintStorageService);
+    const sidebarTreeProvider = new TerminalBlueprintTreeProvider();
+    const sidebarTreeView = vscode.window.createTreeView('terminalBlueprint.sidebar', {
+        treeDataProvider: sidebarTreeProvider,
+        showCollapseAll: false
+    });
+    const sidebarDataController = new SidebarDataController(sidebarTreeProvider, {
+        scanProjects,
+        generateSuggestions: generateCommandSuggestions,
+        loadBlueprints: () => blueprintStorageService.load(),
+        fileSystem: vscode.workspace.fs
+    });
+    const refreshSidebar = vscode.commands.registerCommand('terminal-blueprint.refreshSidebar', () => sidebarDataController.refresh());
+    const sidebarVisibility = sidebarTreeView.onDidChangeVisibility(() => {
+        if (sidebarTreeView.visible) { void sidebarDataController.refresh(); }
+    });
+    const workspaceFoldersChanged = vscode.workspace.onDidChangeWorkspaceFolders(() => {
+        sidebarDataController.invalidate();
+        if (sidebarTreeView.visible) { void sidebarDataController.refresh(); }
+    });
 
     // Command 1: Display extension information.
     const helloWorld = vscode.commands.registerCommand(
@@ -205,6 +226,12 @@ export function activate(context: vscode.ExtensionContext) {
         exportBlueprints,
         checkBlueprintCompatibility,
         runBlueprint,
+        refreshSidebar,
+        sidebarTreeProvider,
+        sidebarTreeView,
+        sidebarDataController,
+        sidebarVisibility,
+        workspaceFoldersChanged,
         terminalLifecycleManager,
         output
     );

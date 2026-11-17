@@ -13,6 +13,23 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "terminal-blueprint",
+          "title": "Terminal Blueprint",
+          "icon": "resources/terminal-blueprint.svg"
+        }
+      ]
+    },
+    "views": {
+      "terminal-blueprint": [
+        {
+          "id": "terminalBlueprint.sidebar",
+          "name": "Terminal Blueprint"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "terminal-blueprint.helloWorld",
@@ -49,8 +66,22 @@
       {
         "command": "terminal-blueprint.runBlueprint",
         "title": "Terminal Blueprint: Run Blueprint"
+      },
+      {
+        "command": "terminal-blueprint.refreshSidebar",
+        "title": "Terminal Blueprint: Refresh Sidebar",
+        "icon": "$(refresh)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "terminal-blueprint.refreshSidebar",
+          "when": "view == terminalBlueprint.sidebar",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
