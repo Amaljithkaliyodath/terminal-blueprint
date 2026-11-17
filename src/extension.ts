@@ -15,6 +15,9 @@ import { scanProjects } from './scanner/projectScanner';
 import { generateCommandSuggestions } from './suggestions/commandSuggestionEngine';
 import { BlueprintStorageService } from './storage/blueprintStorageService';
 import { BlueprintTransferService, DuplicateBlueprintDecision } from './blueprints/blueprintTransferService';
+import { inspectBlueprintCompatibility, BlueprintCompatibilityUi } from './compatibility/blueprintCompatibilityController';
+import { formatBlueprintCompatibilityOutput } from './output/blueprintCompatibilityOutputFormatter';
+import { BlueprintExecutionUi, selectAndRunBlueprint } from './launcher/blueprintExecutionController';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -141,6 +144,55 @@ export function activate(context: vscode.ExtensionContext) {
         const selected = await vscode.window.showQuickPick(blueprints.map((blueprint) => ({ label: blueprint.name, blueprint })));
         if (selected) { await blueprintTransferService.exportOne(uri, selected.blueprint.id); }
     }));
+    const checkBlueprintCompatibility = vscode.commands.registerCommand('terminal-blueprint.checkBlueprintCompatibility', async () => {
+        try {
+            const inspection = await inspectBlueprintCompatibility(
+                blueprintStorageService,
+                scanProjects,
+                createBlueprintCompatibilityUi(),
+                vscode.workspace.fs
+            );
+            if (inspection.outcome === 'no-blueprints') {
+                vscode.window.showInformationMessage('Terminal Blueprint: No saved blueprints are available to inspect.');
+                return;
+            }
+            if (inspection.outcome === 'no-projects') {
+                vscode.window.showWarningMessage('Terminal Blueprint: Please open a project folder before checking compatibility.');
+                return;
+            }
+            if (inspection.outcome === 'cancelled') { return; }
+            if (inspection.outcome !== 'displayed') { return; }
+            output.clear();
+            for (const line of formatBlueprintCompatibilityOutput(inspection.blueprint, inspection.project, inspection.compatibility)) {
+                output.appendLine(line);
+            }
+            output.show();
+        } catch (error) {
+            console.error('Terminal Blueprint compatibility inspection failed:', error);
+            vscode.window.showErrorMessage('Terminal Blueprint: Unable to inspect blueprint compatibility. Existing blueprints were not changed.');
+        }
+    });
+    const runBlueprint = vscode.commands.registerCommand('terminal-blueprint.runBlueprint', async () => {
+        try {
+            await selectAndRunBlueprint(
+                blueprintStorageService,
+                scanProjects,
+                () => vscode.workspace.isTrusted,
+                createBlueprintExecutionUi(),
+                vscode.workspace.fs,
+                createTerminalService(),
+                terminalLifecycleManager,
+                (blueprint, project, compatibility) => {
+                    output.clear();
+                    for (const line of formatBlueprintCompatibilityOutput(blueprint, project, compatibility)) { output.appendLine(line); }
+                    output.show();
+                }
+            );
+        } catch (error) {
+            console.error('Terminal Blueprint blueprint execution selection failed:', error);
+            vscode.window.showErrorMessage('Terminal Blueprint: Unable to prepare blueprint execution. No command was run.');
+        }
+    });
 
     // VS Code will clean these up when the extension stops.
     context.subscriptions.push(
@@ -151,6 +203,8 @@ export function activate(context: vscode.ExtensionContext) {
         manageBlueprints,
         importBlueprints,
         exportBlueprints,
+        checkBlueprintCompatibility,
+        runBlueprint,
         terminalLifecycleManager,
         output
     );
@@ -197,6 +251,49 @@ function createCommandSelectionUi(): CommandSelectionUi {
         showWarning(message: string) {
             void vscode.window.showWarningMessage(message);
         }
+    };
+}
+
+function createBlueprintCompatibilityUi(): BlueprintCompatibilityUi {
+    return {
+        async pickBlueprint(items) {
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: 'Select a saved blueprint to inspect', matchOnDescription: true, matchOnDetail: true
+            });
+            return selected?.blueprint;
+        },
+        async pickProject(items) {
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: 'Select a detected project for compatibility inspection', matchOnDescription: true, matchOnDetail: true
+            });
+            return selected?.project;
+        }
+    };
+}
+
+function createBlueprintExecutionUi(): BlueprintExecutionUi {
+    return {
+        ...createBlueprintCompatibilityUi(),
+        async pickCommands(items) {
+            const selected = await vscode.window.showQuickPick(items.map((item) => ({ ...item, picked: true })), {
+                canPickMany: true, placeHolder: 'Select independently authorized blueprint commands to preview', matchOnDescription: true, matchOnDetail: true
+            });
+            return selected?.map((item) => item.commandId);
+        },
+        async acknowledgeWarning(result) {
+            const choice = await vscode.window.showWarningMessage(`Compatibility warnings:\n${result.warnings.map((warning) => warning.message).join('\n')}\nContinue to command selection?`, { modal: true }, 'Continue', 'Cancel');
+            return choice === 'Continue';
+        },
+        async confirmIncompatibleOverride(result) {
+            const choice = await vscode.window.showWarningMessage(`Blueprint compatibility is INCOMPATIBLE:\n${result.mismatches.map((mismatch) => mismatch.message).join('\n')}\nContinue only with independently authorized commands?`, { modal: true }, 'Continue Anyway', 'Cancel');
+            return choice === 'Continue Anyway';
+        },
+        async requestApproval(preview) {
+            const choice = await vscode.window.showInformationMessage(preview.message, { modal: true }, 'Approve', 'Cancel');
+            return choice === 'Approve';
+        },
+        showInformation(message) { void vscode.window.showInformationMessage(message); },
+        showWarning(message) { void vscode.window.showWarningMessage(message); }
     };
 }
 
