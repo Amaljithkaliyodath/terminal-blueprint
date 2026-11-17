@@ -108,6 +108,24 @@ suite('Nested Project Scanner', () => {
         }
     });
 
+    test('applies safe depth and additional directory exclusions without relaxing hard limits', async () => {
+        const workspacePath = await createWorkspaceFixture({
+            'apps/web/package.json': '{}',
+            'one/two/three/four/package.json': '{}'
+        });
+        try {
+            const folder = { name: 'workspace', uri: vscode.Uri.file(workspacePath) };
+            const rootOnly = await scanWorkspaceFolder(folder, { maxDepth: 0, maxDirectories: 500 });
+            assert.deepStrictEqual(rootOnly.map((project) => project.relativePath), ['.']);
+            const excluded = await scanWorkspaceFolder(folder, { maxDepth: 4, maxDirectories: 500, excludedDirectoryNames: ['apps', '../unsafe', 'node_modules/child'] });
+            assert.deepStrictEqual(excluded.map((project) => project.relativePath), ['.', 'one/two/three/four']);
+            const clamped = await scanWorkspaceFolder(folder, { maxDepth: 99, maxDirectories: 9999 });
+            assert.deepStrictEqual(clamped.map((project) => project.relativePath), ['.', 'apps/web', 'one/two/three/four']);
+        } finally {
+            await fs.rm(workspacePath, { recursive: true, force: true });
+        }
+    });
+
     test('scans multiple workspace roots independently', async () => {
         const firstWorkspacePath = await createWorkspaceFixture({
             'apps/web/package.json': '{}'

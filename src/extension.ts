@@ -11,7 +11,7 @@ import { TerminalLifecycleManager } from './launcher/terminalLifecycleManager';
 import { createBlueprintFromInputs, manageBlueprintsFromInputs } from './blueprints/blueprintManagementController';
 import { BlueprintManagementService } from './blueprints/blueprintManagementService';
 import { formatScanOutput } from './output/scanOutputFormatter';
-import { scanProjects } from './scanner/projectScanner';
+import { scanProjectsWithSettings } from './scanner/configuredProjectScanner';
 import { generateCommandSuggestions } from './suggestions/commandSuggestionEngine';
 import { BlueprintStorageService } from './storage/blueprintStorageService';
 import { BlueprintTransferService, DuplicateBlueprintDecision } from './blueprints/blueprintTransferService';
@@ -20,6 +20,8 @@ import { formatBlueprintCompatibilityOutput } from './output/blueprintCompatibil
 import { BlueprintExecutionUi, selectAndRunBlueprint } from './launcher/blueprintExecutionController';
 import { TerminalBlueprintTreeProvider } from './sidebar/terminalBlueprintTreeProvider';
 import { SidebarDataController } from './sidebar/sidebarDataController';
+import { TerminalBlueprintConfigurationService, TerminalBlueprintInformationService } from './config/terminalBlueprintConfiguration';
+import { AutomaticScanController } from './config/automaticScanController';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -37,33 +39,43 @@ export function activate(context: vscode.ExtensionContext) {
     const blueprintStorageService = new BlueprintStorageService(context.globalStorageUri);
     const blueprintManagementService = new BlueprintManagementService(blueprintStorageService);
     const blueprintTransferService = new BlueprintTransferService(blueprintStorageService);
+    const configurationService = new TerminalBlueprintConfigurationService();
+    const informationService = new TerminalBlueprintInformationService(() => configurationService.read());
+    const scanConfiguredProjects = () => scanProjectsWithSettings(() => configurationService.read());
     const sidebarTreeProvider = new TerminalBlueprintTreeProvider();
     const sidebarTreeView = vscode.window.createTreeView('terminalBlueprint.sidebar', {
         treeDataProvider: sidebarTreeProvider,
         showCollapseAll: false
     });
     const sidebarDataController = new SidebarDataController(sidebarTreeProvider, {
-        scanProjects,
+        scanProjects: scanConfiguredProjects,
         generateSuggestions: generateCommandSuggestions,
         loadBlueprints: () => blueprintStorageService.load(),
         fileSystem: vscode.workspace.fs
+    });
+    const automaticScanController = new AutomaticScanController(sidebarDataController, {
+        readSettings: () => configurationService.read(),
+        hasWorkspace: () => (vscode.workspace.workspaceFolders?.length ?? 0) > 0,
+        isWorkspaceTrusted: () => vscode.workspace.isTrusted
     });
     const refreshSidebar = vscode.commands.registerCommand('terminal-blueprint.refreshSidebar', () => sidebarDataController.refresh());
     const sidebarVisibility = sidebarTreeView.onDidChangeVisibility(() => {
         if (sidebarTreeView.visible) { void sidebarDataController.refresh(); }
     });
     const workspaceFoldersChanged = vscode.workspace.onDidChangeWorkspaceFolders(() => {
-        sidebarDataController.invalidate();
-        if (sidebarTreeView.visible) { void sidebarDataController.refresh(); }
+        automaticScanController.onWorkspaceFoldersChanged();
+        // Automatic scanning already refreshes a trusted workspace when enabled.
+        // Keep the existing visible-sidebar refresh only when auto-scan is off.
+        if (sidebarTreeView.visible && !configurationService.read().autoScan) { void sidebarDataController.refresh(); }
     });
+    const configurationChanged = configurationService.onDidChange((settings) => automaticScanController.onConfigurationChanged(settings));
+    const workspaceTrustGranted = vscode.workspace.onDidGrantWorkspaceTrust(() => automaticScanController.onWorkspaceTrustGranted());
 
     // Command 1: Display extension information.
     const helloWorld = vscode.commands.registerCommand(
         'terminal-blueprint.helloWorld',
         () => {
-            vscode.window.showInformationMessage(
-                `Terminal Blueprint is running on VS Code ${vscode.version}`
-            );
+            informationService.show(`Terminal Blueprint is running on VS Code ${vscode.version}`);
         }
     );
 
@@ -72,7 +84,7 @@ export function activate(context: vscode.ExtensionContext) {
         'terminal-blueprint.scanProject',
         async () => {
             try {
-                const projects = await scanProjects();
+                const projects = await scanConfiguredProjects();
 
                 // Check whether a workspace is open.
                 if (projects.length === 0) {
@@ -114,7 +126,7 @@ export function activate(context: vscode.ExtensionContext) {
         'terminal-blueprint.runSuggestedCommand',
         async () => {
             try {
-                const projects = await scanProjects();
+                const projects = await scanConfiguredProjects();
                 if (projects.length === 0) {
                     vscode.window.showWarningMessage(
                         'Terminal Blueprint: Please open a project folder before selecting a command.'
@@ -126,7 +138,7 @@ export function activate(context: vscode.ExtensionContext) {
                 await selectAndRunSuggestedCommand(
                     suggestions,
                     () => vscode.workspace.isTrusted,
-                    createCommandSelectionUi(),
+                createCommandSelectionUi(informationService),
                     { isAvailable: isAvailableDirectory },
                     createTerminalService(),
                     terminalLifecycleManager
@@ -142,18 +154,18 @@ export function activate(context: vscode.ExtensionContext) {
 
     const createBlueprint = vscode.commands.registerCommand(
         'terminal-blueprint.createBlueprint',
-        async () => runBlueprintManagementAction(() => createBlueprintFromInputs(blueprintManagementService))
+        async () => runBlueprintManagementAction(() => createBlueprintFromInputs(blueprintManagementService, (message) => informationService.show(message)))
     );
 
     const manageBlueprints = vscode.commands.registerCommand(
         'terminal-blueprint.manageBlueprints',
-        async () => runBlueprintManagementAction(() => manageBlueprintsFromInputs(blueprintManagementService))
+        async () => runBlueprintManagementAction(() => manageBlueprintsFromInputs(blueprintManagementService, (message) => informationService.show(message)))
     );
     const importBlueprints = vscode.commands.registerCommand('terminal-blueprint.importBlueprints', async () => runBlueprintManagementAction(async () => {
         const [uri] = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { JSON: ['json'] }, openLabel: 'Import Blueprints' }) ?? [];
         if (!uri) { return; }
         const imported = await blueprintTransferService.importFile(uri, chooseDuplicateBlueprintAction);
-        vscode.window.showInformationMessage(`Terminal Blueprint: Imported ${imported} blueprint(s).`);
+        informationService.show(`Terminal Blueprint: Imported ${imported} blueprint(s).`);
     }));
     const exportBlueprints = vscode.commands.registerCommand('terminal-blueprint.exportBlueprints', async () => runBlueprintManagementAction(async () => {
         const choice = await vscode.window.showQuickPick([{ label: 'Export all blueprints', value: 'all' }, { label: 'Export one blueprint', value: 'one' }]);
@@ -169,12 +181,12 @@ export function activate(context: vscode.ExtensionContext) {
         try {
             const inspection = await inspectBlueprintCompatibility(
                 blueprintStorageService,
-                scanProjects,
+                scanConfiguredProjects,
                 createBlueprintCompatibilityUi(),
                 vscode.workspace.fs
             );
             if (inspection.outcome === 'no-blueprints') {
-                vscode.window.showInformationMessage('Terminal Blueprint: No saved blueprints are available to inspect.');
+                informationService.show('Terminal Blueprint: No saved blueprints are available to inspect.');
                 return;
             }
             if (inspection.outcome === 'no-projects') {
@@ -197,9 +209,9 @@ export function activate(context: vscode.ExtensionContext) {
         try {
             await selectAndRunBlueprint(
                 blueprintStorageService,
-                scanProjects,
+                scanConfiguredProjects,
                 () => vscode.workspace.isTrusted,
-                createBlueprintExecutionUi(),
+                createBlueprintExecutionUi(informationService),
                 vscode.workspace.fs,
                 createTerminalService(),
                 terminalLifecycleManager,
@@ -232,9 +244,14 @@ export function activate(context: vscode.ExtensionContext) {
         sidebarDataController,
         sidebarVisibility,
         workspaceFoldersChanged,
+        configurationService,
+        configurationChanged,
+        workspaceTrustGranted,
+        automaticScanController,
         terminalLifecycleManager,
         output
     );
+    automaticScanController.onActivation();
 }
 
 export function deactivate() {}
@@ -253,7 +270,7 @@ async function chooseDuplicateBlueprintAction(): Promise<DuplicateBlueprintDecis
     return choice === 'Import Copy' ? 'copy' : choice === 'Skip' ? 'skip' : 'cancel';
 }
 
-function createCommandSelectionUi(): CommandSelectionUi {
+function createCommandSelectionUi(informationService: TerminalBlueprintInformationService): CommandSelectionUi {
     return {
         async pickSuggestion(items: readonly SuggestedCommandQuickPickItem[]) {
             const selected = await vscode.window.showQuickPick(items, {
@@ -273,7 +290,7 @@ function createCommandSelectionUi(): CommandSelectionUi {
             return choice === 'Approve';
         },
         showInformation(message: string) {
-            void vscode.window.showInformationMessage(message);
+            informationService.show(message);
         },
         showWarning(message: string) {
             void vscode.window.showWarningMessage(message);
@@ -298,7 +315,7 @@ function createBlueprintCompatibilityUi(): BlueprintCompatibilityUi {
     };
 }
 
-function createBlueprintExecutionUi(): BlueprintExecutionUi {
+function createBlueprintExecutionUi(informationService: TerminalBlueprintInformationService): BlueprintExecutionUi {
     return {
         ...createBlueprintCompatibilityUi(),
         async pickCommands(items) {
@@ -319,7 +336,7 @@ function createBlueprintExecutionUi(): BlueprintExecutionUi {
             const choice = await vscode.window.showInformationMessage(preview.message, { modal: true }, 'Approve', 'Cancel');
             return choice === 'Approve';
         },
-        showInformation(message) { void vscode.window.showInformationMessage(message); },
+        showInformation(message) { informationService.show(message); },
         showWarning(message) { void vscode.window.showWarningMessage(message); }
     };
 }

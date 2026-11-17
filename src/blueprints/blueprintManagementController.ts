@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { TerminalBlueprint, TerminalBlueprintCommand } from '../models/terminalBlueprint';
 import { BlueprintManagementService, BlueprintCommandDraft } from './blueprintManagementService';
 
-export async function createBlueprintFromInputs(service: BlueprintManagementService): Promise<void> {
+export async function createBlueprintFromInputs(service: BlueprintManagementService, showInformation: (message: string) => void = showOptionalInformation): Promise<void> {
     const name = await vscode.window.showInputBox({ prompt: 'Blueprint name', validateInput: requiredText });
     if (name === undefined) {
         return;
@@ -12,13 +12,13 @@ export async function createBlueprintFromInputs(service: BlueprintManagementServ
         return;
     }
     await service.create({ name, commands: [command] });
-    vscode.window.showInformationMessage(`Terminal Blueprint: Created "${name}".`);
+    showInformation(`Terminal Blueprint: Created "${name}".`);
 }
 
-export async function manageBlueprintsFromInputs(service: BlueprintManagementService): Promise<void> {
+export async function manageBlueprintsFromInputs(service: BlueprintManagementService, showInformation: (message: string) => void = showOptionalInformation): Promise<void> {
     const blueprints = await service.list();
     if (blueprints.length === 0) {
-        vscode.window.showInformationMessage('Terminal Blueprint: No saved blueprints yet.');
+        showInformation('Terminal Blueprint: No saved blueprints yet.');
         return;
     }
     const selected = await vscode.window.showQuickPick(
@@ -28,10 +28,10 @@ export async function manageBlueprintsFromInputs(service: BlueprintManagementSer
     if (!selected) {
         return;
     }
-    await manageBlueprint(service, selected.blueprint);
+    await manageBlueprint(service, selected.blueprint, showInformation);
 }
 
-async function manageBlueprint(service: BlueprintManagementService, blueprint: TerminalBlueprint): Promise<void> {
+async function manageBlueprint(service: BlueprintManagementService, blueprint: TerminalBlueprint, showInformation: (message: string) => void): Promise<void> {
     const action = await vscode.window.showQuickPick([
         { label: 'View details', value: 'view' },
         { label: 'Rename', value: 'rename' },
@@ -71,10 +71,10 @@ async function manageBlueprint(service: BlueprintManagementService, blueprint: T
             return;
         case 'duplicate':
             await service.duplicate(blueprint.id);
-            vscode.window.showInformationMessage(`Terminal Blueprint: Duplicated "${blueprint.name}".`);
+            showInformation(`Terminal Blueprint: Duplicated "${blueprint.name}".`);
             return;
         case 'delete':
-            await deleteBlueprint(service, blueprint);
+            await deleteBlueprint(service, blueprint, showInformation);
     }
 }
 
@@ -135,7 +135,7 @@ async function reorderCommand(service: BlueprintManagementService, blueprint: Te
     }
 }
 
-async function deleteBlueprint(service: BlueprintManagementService, blueprint: TerminalBlueprint): Promise<void> {
+async function deleteBlueprint(service: BlueprintManagementService, blueprint: TerminalBlueprint, showInformation: (message: string) => void): Promise<void> {
     const choice = await vscode.window.showWarningMessage(
         `Delete blueprint "${blueprint.name}"? This cannot be undone.`,
         { modal: true },
@@ -143,7 +143,7 @@ async function deleteBlueprint(service: BlueprintManagementService, blueprint: T
     );
     if (choice === 'Delete') {
         await service.delete(blueprint.id);
-        vscode.window.showInformationMessage(`Terminal Blueprint: Deleted "${blueprint.name}".`);
+        showInformation(`Terminal Blueprint: Deleted "${blueprint.name}".`);
     }
 }
 
@@ -183,6 +183,8 @@ async function promptForCommand(existing?: TerminalBlueprintCommand): Promise<Bl
 function requiredText(value: string): string | undefined {
     return value.trim() === '' ? 'A value is required.' : undefined;
 }
+
+function showOptionalInformation(message: string): void { void vscode.window.showInformationMessage(message); }
 
 function formatBlueprintDetails(blueprint: TerminalBlueprint): string {
     const commands = blueprint.commands.map((command, index) => `${index + 1}. ${command.label}: ${command.command}`).join('\n');
