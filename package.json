@@ -33,6 +33,14 @@
       {
         "command": "terminal-blueprint.manageBlueprints",
         "title": "Terminal Blueprint: Manage Blueprints"
+      },
+      {
+        "command": "terminal-blueprint.importBlueprints",
+        "title": "Terminal Blueprint: Import Blueprints"
+      },
+      {
+        "command": "terminal-blueprint.exportBlueprints",
+        "title": "Terminal Blueprint: Export Blueprints"
       }
     ]
   },
