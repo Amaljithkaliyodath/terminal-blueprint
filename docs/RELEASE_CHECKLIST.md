@@ -4,8 +4,8 @@ Use this checklist before creating the first public Terminal Blueprint release. 
 
 ## Owner decisions still required
 
-- [ ] Register a VS Code Marketplace publisher account.
-- [ ] Provide and confirm the exact Marketplace publisher ID for `package.json`.
+- [x] Register a VS Code Marketplace publisher account.
+- [x] Provide and confirm the exact Marketplace publisher ID (`amalkali`) for `package.json`.
 - [x] Select the MIT License and approve its text.
 - [x] Add the MIT `LICENSE` file and matching package metadata.
 - [x] Configure the Buy Me a Coffee support URL.

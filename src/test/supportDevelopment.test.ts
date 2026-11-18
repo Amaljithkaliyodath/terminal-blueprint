@@ -5,10 +5,11 @@ import * as vscode from 'vscode';
 import { openSupportDevelopment, SUPPORT_DEVELOPMENT_URL } from '../support/supportDevelopment';
 
 suite('Support Development', () => {
-    test('declares the MIT license, sponsor metadata, and support command', () => {
+    test('declares the Marketplace publisher, MIT license, sponsor metadata, and support command', () => {
         const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8')) as {
-            license: string; sponsor: { url: string }; contributes: { commands: Array<{ command: string; title: string }> };
+            publisher: string; license: string; sponsor: { url: string }; contributes: { commands: Array<{ command: string; title: string }> };
         };
+        assert.strictEqual(manifest.publisher, 'amalkali');
         assert.strictEqual(manifest.license, 'MIT');
         assert.strictEqual(manifest.sponsor.url, SUPPORT_DEVELOPMENT_URL);
         assert.ok(manifest.contributes.commands.some((command) => command.command === 'terminal-blueprint.supportDevelopment' && command.title === 'Terminal Blueprint: Support Development'));

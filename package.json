@@ -4,6 +4,7 @@
   "displayName": "Terminal Blueprint",
   "description": "Scan projects, review verified terminal suggestions, and manage reusable terminal blueprints",
   "version": "0.0.1",
+  "publisher": "amalkali",
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
