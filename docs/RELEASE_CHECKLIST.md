@@ -26,9 +26,11 @@ Use this checklist before creating the first public Terminal Blueprint release. 
 
 ## Packaging and compatibility
 
-- [ ] Review `.vscodeignore` and add a carefully verified package allowlist or exclusions without removing `out/`, `resources/`, or other runtime assets.
+- [x] Add `.vscodeignore` exclusions for source, tests, development tooling, local configuration, logs, temporary files, credentials, and agent artifacts.
+- [x] Preserve required runtime files: `package.json`, `out/extension.js` and compiled runtime modules, `resources/terminal-blueprint.svg`, `README.md`, `CHANGELOG.md`, and `LICENSE`.
+- [x] Verify MIT license metadata and the Buy Me a Coffee sponsor URL before packaging.
 - [ ] Create a VSIX only after packaging configuration is approved.
-- [ ] Inspect the VSIX file list for source, tests, local storage, credentials, and unexpected artifacts.
+- [ ] Inspect the VSIX file list for source, tests, local storage, credentials, unexpected artifacts, and required runtime files.
 - [ ] Confirm `LICENSE` is included in the release package.
 - [ ] Perform a clean VSIX installation test in a separate VS Code profile.
 - [ ] Test the declared minimum supported VS Code version, currently `^1.85.0`.
