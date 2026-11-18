@@ -38,6 +38,7 @@ Use this checklist before creating the first public Terminal Blueprint release. 
 ## Release process
 
 - [ ] Run compile, lint, automated tests, and final manual Extension Development Host checks.
+- [ ] Complete the prioritized manual release tests in `docs/MANUAL_TEST_CHECKLIST.md`, including the required VS Code 1.85 smoke test.
 - [ ] Prepare GitHub release notes and release assets.
 - [ ] Obtain owner approval for Marketplace publication.
 - [ ] Publish only after all required checks and owner approvals are complete.
