@@ -10,7 +10,7 @@ interface CategoryDefinition { category: SidebarCategory; label: string; tooltip
 const categories: readonly CategoryDefinition[] = [
     { category: 'projects', label: 'Detected Projects', tooltip: 'Detected projects in the current workspace.', icon: 'folder-library' },
     { category: 'commands', label: 'Suggested Commands', tooltip: 'Metadata-backed command suggestions for detected projects.', icon: 'terminal' },
-    { category: 'blueprints', label: 'Saved Blueprints', tooltip: 'Saved blueprints will appear here in a future update.', icon: 'bookmark' }
+    { category: 'blueprints', label: 'Saved Blueprints', tooltip: 'Saved blueprints and their compatibility results for the current workspace.', icon: 'bookmark' }
 ];
 
 export interface SidebarBlueprint { blueprint: TerminalBlueprint; compatibility?: BlueprintCompatibilityResult; compatibilityMessage?: string; }
@@ -65,14 +65,14 @@ export class TerminalBlueprintTreeProvider implements vscode.TreeDataProvider<Te
     }
 
     private blueprintChildren(): TerminalBlueprintTreeItem[] {
-        if (this.data.blueprintState === 'error') { return [errorItem('blueprints', this.data.blueprintErrorMessage ?? 'Unable to load saved blueprints.')]; }
-        if (this.data.blueprints.length === 0) { return [emptyItem('blueprints', this.data.blueprintState === 'unloaded' ? 'No blueprints loaded' : 'No saved blueprints', 'Create or import blueprints to display them here.')]; }
-        return this.data.blueprints.map(({ blueprint, compatibility, compatibilityMessage }) => {
+        if (this.data.blueprintState === 'error') { return [errorItem('blueprints', this.data.blueprintErrorMessage ?? 'Unable to load saved blueprints.'), supportItem()]; }
+        if (this.data.blueprints.length === 0) { return [emptyItem('blueprints', this.data.blueprintState === 'unloaded' ? 'No blueprints loaded' : 'No saved blueprints', 'Create or import blueprints to display them here.'), supportItem()]; }
+        return [...this.data.blueprints.map(({ blueprint, compatibility, compatibilityMessage }) => {
             const hint = [blueprint.technologyHints?.join(', '), blueprint.packageManagerHint].filter(Boolean).join(' · ') || 'No compatibility hints';
             const item = new TerminalBlueprintTreeItem(`terminal-blueprint.blueprint.${blueprint.id}`, blueprint.name, vscode.TreeItemCollapsibleState.Expanded, `${blueprint.description ?? 'No description.'}\n${blueprint.commands.length} saved command(s)\nHints: ${hint}\n${compatibility ? `Compatibility: ${compatibility.status}` : compatibilityMessage ?? 'Compatibility not evaluated.'}`, 'bookmark');
             item.description = `${blueprint.commands.length} command${blueprint.commands.length === 1 ? '' : 's'} · ${compatibility ? compatibility.status : 'Not evaluated'}`;
             return item;
-        });
+        }), supportItem()];
     }
 
     private blueprintDetailChildren(id: string): TerminalBlueprintTreeItem[] {
@@ -96,6 +96,11 @@ export class TerminalBlueprintTreeProvider implements vscode.TreeDataProvider<Te
 function categoryItem(category: CategoryDefinition): TerminalBlueprintTreeItem { return new TerminalBlueprintTreeItem(`terminal-blueprint.category.${category.category}`, category.label, vscode.TreeItemCollapsibleState.Expanded, category.tooltip, category.icon); }
 function emptyItem(category: SidebarCategory, label: string, tooltip: string): TerminalBlueprintTreeItem { return new TerminalBlueprintTreeItem(`terminal-blueprint.empty.${category}`, label, vscode.TreeItemCollapsibleState.None, tooltip); }
 function errorItem(category: SidebarCategory, message = 'Unable to load sidebar data.'): TerminalBlueprintTreeItem { return new TerminalBlueprintTreeItem(`terminal-blueprint.error.${category}`, 'Unable to load data', vscode.TreeItemCollapsibleState.None, message, 'warning'); }
+function supportItem(): TerminalBlueprintTreeItem {
+    const item = new TerminalBlueprintTreeItem('terminal-blueprint.support-development', 'Support Development', vscode.TreeItemCollapsibleState.None, 'Optionally support Terminal Blueprint development through Buy Me a Coffee.', 'heart');
+    item.command = { command: 'terminal-blueprint.supportDevelopment', title: 'Support Development' };
+    return item;
+}
 function projectItem(project: ProjectInfo): TerminalBlueprintTreeItem {
     const technology = project.technologies.join(', ') || 'No verified technologies';
     const packageManager = project.packageManager?.isAmbiguous ? `Ambiguous package managers: ${project.packageManager.candidates.join(', ')}` : project.packageManager?.name ? `Package manager: ${project.packageManager.name}` : 'No verified package manager';

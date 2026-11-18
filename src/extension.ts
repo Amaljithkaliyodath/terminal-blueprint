@@ -22,6 +22,7 @@ import { TerminalBlueprintTreeProvider } from './sidebar/terminalBlueprintTreePr
 import { SidebarDataController } from './sidebar/sidebarDataController';
 import { TerminalBlueprintConfigurationService, TerminalBlueprintInformationService } from './config/terminalBlueprintConfiguration';
 import { AutomaticScanController } from './config/automaticScanController';
+import { openSupportDevelopment } from './support/supportDevelopment';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -59,6 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
         isWorkspaceTrusted: () => vscode.workspace.isTrusted
     });
     const refreshSidebar = vscode.commands.registerCommand('terminal-blueprint.refreshSidebar', () => sidebarDataController.refresh());
+    const supportDevelopment = vscode.commands.registerCommand('terminal-blueprint.supportDevelopment', () => openSupportDevelopment());
     const sidebarVisibility = sidebarTreeView.onDidChangeVisibility(() => {
         if (sidebarTreeView.visible) { void sidebarDataController.refresh(); }
     });
@@ -71,15 +73,7 @@ export function activate(context: vscode.ExtensionContext) {
     const configurationChanged = configurationService.onDidChange((settings) => automaticScanController.onConfigurationChanged(settings));
     const workspaceTrustGranted = vscode.workspace.onDidGrantWorkspaceTrust(() => automaticScanController.onWorkspaceTrustGranted());
 
-    // Command 1: Display extension information.
-    const helloWorld = vscode.commands.registerCommand(
-        'terminal-blueprint.helloWorld',
-        () => {
-            informationService.show(`Terminal Blueprint is running on VS Code ${vscode.version}`);
-        }
-    );
-
-    // Command 2: Scan the opened project.
+    // Display the scanned project information.
     const scanProject = vscode.commands.registerCommand(
         'terminal-blueprint.scanProject',
         async () => {
@@ -229,7 +223,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     // VS Code will clean these up when the extension stops.
     context.subscriptions.push(
-        helloWorld,
         scanProject,
         runSuggestedCommand,
         createBlueprint,
@@ -239,6 +232,7 @@ export function activate(context: vscode.ExtensionContext) {
         checkBlueprintCompatibility,
         runBlueprint,
         refreshSidebar,
+        supportDevelopment,
         sidebarTreeProvider,
         sidebarTreeView,
         sidebarDataController,

@@ -2,14 +2,33 @@
 {
   "name": "terminal-blueprint",
   "displayName": "Terminal Blueprint",
-  "description": "Detect project types, suggest commands, and launch reusable terminal setups",
+  "description": "Scan projects, review verified terminal suggestions, and manage reusable terminal blueprints",
   "version": "0.0.1",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "terminal",
+    "project scanner",
+    "command suggestions",
+    "blueprints",
+    "developer tools"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Amaljithkaliyodath/terminal-blueprint.git"
+  },
+  "homepage": "https://github.com/Amaljithkaliyodath/terminal-blueprint#readme",
+  "bugs": {
+    "url": "https://github.com/Amaljithkaliyodath/terminal-blueprint/issues"
+  },
+  "sponsor": {
+    "url": "https://buymeacoffee.com/amaljithkab"
+  },
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
@@ -60,10 +79,6 @@
     },
     "commands": [
       {
-        "command": "terminal-blueprint.helloWorld",
-        "title": "Hello World"
-      },
-      {
         "command": "terminal-blueprint.scanProject",
         "title": "Terminal Blueprint: Scan Project"
       },
@@ -99,6 +114,10 @@
         "command": "terminal-blueprint.refreshSidebar",
         "title": "Terminal Blueprint: Refresh Sidebar",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "terminal-blueprint.supportDevelopment",
+        "title": "Terminal Blueprint: Support Development"
       }
     ],
     "menus": {

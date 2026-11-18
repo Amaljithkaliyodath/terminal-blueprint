@@ -22,6 +22,20 @@ suite('Terminal Blueprint Tree Provider', () => {
         provider.dispose();
     });
 
+    test('provides a keyboard-accessible support action without terminal side effects', () => {
+        const terminalCount = vscode.window.terminals.length;
+        const provider = new TerminalBlueprintTreeProvider();
+        const blueprints = provider.getChildren(provider.getChildren().find((item) => item.id === 'terminal-blueprint.category.blueprints'));
+        const support = blueprints.find((item) => item.id === 'terminal-blueprint.support-development');
+        assert.ok(support);
+        assert.strictEqual(support?.label, 'Support Development');
+        assert.strictEqual(support?.command?.command, 'terminal-blueprint.supportDevelopment');
+        assert.ok(support?.iconPath instanceof vscode.ThemeIcon);
+        assert.ok(support?.accessibilityInformation?.label.includes('Support Development'));
+        assert.strictEqual(vscode.window.terminals.length, terminalCount);
+        provider.dispose();
+    });
+
     test('emits refresh events and stops emitting after disposal', () => {
         const provider = new TerminalBlueprintTreeProvider();
         let changes = 0;
