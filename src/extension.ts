@@ -148,7 +148,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     const createBlueprint = vscode.commands.registerCommand(
         'terminal-blueprint.createBlueprint',
-        async () => runBlueprintManagementAction(() => createBlueprintFromInputs(blueprintManagementService, (message) => informationService.show(message)))
+        async () => {
+            const created = await runBlueprintManagementAction(() => createBlueprintFromInputs(blueprintManagementService));
+            if (!created) { return; }
+            await refreshSidebarAfterBlueprintStorageChange(sidebarDataController);
+            informationService.show(`Terminal Blueprint: Created "${created.name}".`);
+        }
     );
 
     const manageBlueprints = vscode.commands.registerCommand(
@@ -250,12 +255,21 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {}
 
-async function runBlueprintManagementAction(action: () => Promise<void>): Promise<void> {
+async function runBlueprintManagementAction<T>(action: () => Promise<T>): Promise<T | undefined> {
     try {
-        await action();
+        return await action();
     } catch (error) {
         console.error('Terminal Blueprint blueprint management failed:', error);
         vscode.window.showErrorMessage('Terminal Blueprint: Unable to update local blueprints. Existing data was not changed.');
+        return undefined;
+    }
+}
+
+async function refreshSidebarAfterBlueprintStorageChange(sidebarDataController: SidebarDataController): Promise<void> {
+    try {
+        await sidebarDataController.refresh();
+    } catch (error) {
+        console.error('Terminal Blueprint sidebar refresh after blueprint storage change failed:', error);
     }
 }
 

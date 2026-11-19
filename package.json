@@ -81,7 +81,8 @@
     "commands": [
       {
         "command": "terminal-blueprint.scanProject",
-        "title": "Terminal Blueprint: Scan Project"
+        "title": "Terminal Blueprint: Scan Project",
+        "icon": "$(search)"
       },
       {
         "command": "terminal-blueprint.runSuggestedCommand",
@@ -89,11 +90,13 @@
       },
       {
         "command": "terminal-blueprint.createBlueprint",
-        "title": "Terminal Blueprint: Create Blueprint"
+        "title": "Terminal Blueprint: Create Blueprint",
+        "icon": "$(add)"
       },
       {
         "command": "terminal-blueprint.manageBlueprints",
-        "title": "Terminal Blueprint: Manage Blueprints"
+        "title": "Terminal Blueprint: Manage Blueprints",
+        "icon": "$(gear)"
       },
       {
         "command": "terminal-blueprint.importBlueprints",
@@ -124,9 +127,56 @@
     "menus": {
       "view/title": [
         {
+          "command": "terminal-blueprint.scanProject",
+          "when": "view == terminalBlueprint.sidebar",
+          "group": "navigation@1"
+        },
+        {
           "command": "terminal-blueprint.refreshSidebar",
           "when": "view == terminalBlueprint.sidebar",
-          "group": "navigation"
+          "group": "navigation@2"
+        },
+        {
+          "command": "terminal-blueprint.createBlueprint",
+          "when": "view == terminalBlueprint.sidebar",
+          "group": "navigation@3"
+        },
+        {
+          "command": "terminal-blueprint.manageBlueprints",
+          "when": "view == terminalBlueprint.sidebar",
+          "group": "navigation@4"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "terminal-blueprint.scanProject",
+          "when": "view == terminalBlueprint.sidebar && viewItem == terminal-blueprint.category.projects",
+          "group": "navigation@1"
+        },
+        {
+          "command": "terminal-blueprint.runSuggestedCommand",
+          "when": "view == terminalBlueprint.sidebar && viewItem == terminal-blueprint.suggestion",
+          "group": "navigation@1"
+        },
+        {
+          "command": "terminal-blueprint.createBlueprint",
+          "when": "view == terminalBlueprint.sidebar && viewItem == terminal-blueprint.category.blueprints",
+          "group": "navigation@1"
+        },
+        {
+          "command": "terminal-blueprint.manageBlueprints",
+          "when": "view == terminalBlueprint.sidebar && viewItem == terminal-blueprint.category.blueprints",
+          "group": "navigation@2"
+        },
+        {
+          "command": "terminal-blueprint.manageBlueprints",
+          "when": "view == terminalBlueprint.sidebar && viewItem == terminal-blueprint.blueprint",
+          "group": "navigation@1"
+        },
+        {
+          "command": "terminal-blueprint.checkBlueprintCompatibility",
+          "when": "view == terminalBlueprint.sidebar && viewItem == terminal-blueprint.blueprint",
+          "group": "navigation@2"
         }
       ]
     }

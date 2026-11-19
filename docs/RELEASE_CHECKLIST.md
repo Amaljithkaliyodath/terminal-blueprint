@@ -14,7 +14,7 @@ Use this checklist before creating the first public Terminal Blueprint release. 
 
 - [ ] Verify extension name, display name, description, categories, keywords, repository, homepage, and issue URL.
 - [ ] Review the README and changelog for accuracy.
-- [ ] Confirm the support URL opens correctly from the Command Palette and sidebar action.
+- [ ] Confirm the support URL opens correctly from the Command Palette and Support & About sidebar item.
 - [ ] Confirm Marketplace icon and visual assets meet current Marketplace requirements.
 - [ ] Remove placeholder, internal, or machine-specific material from the release tree.
 

@@ -2,17 +2,16 @@ import * as vscode from 'vscode';
 import { TerminalBlueprint, TerminalBlueprintCommand } from '../models/terminalBlueprint';
 import { BlueprintManagementService, BlueprintCommandDraft } from './blueprintManagementService';
 
-export async function createBlueprintFromInputs(service: BlueprintManagementService, showInformation: (message: string) => void = showOptionalInformation): Promise<void> {
+export async function createBlueprintFromInputs(service: BlueprintManagementService): Promise<TerminalBlueprint | undefined> {
     const name = await vscode.window.showInputBox({ prompt: 'Blueprint name', validateInput: requiredText });
     if (name === undefined) {
-        return;
+        return undefined;
     }
     const command = await promptForCommand();
     if (!command) {
-        return;
+        return undefined;
     }
-    await service.create({ name, commands: [command] });
-    showInformation(`Terminal Blueprint: Created "${name}".`);
+    return service.create({ name, commands: [command] });
 }
 
 export async function manageBlueprintsFromInputs(service: BlueprintManagementService, showInformation: (message: string) => void = showOptionalInformation): Promise<void> {

@@ -33,24 +33,30 @@ Tests marked **Current + 1.85** should be run in the current installed VS Code a
 
 ### MT-02 — Scan is read-only and does not execute discovered scripts
 
-**Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
+**Compatibility:** Current + 1.85 · **Result:** PARTIAL
 **Prerequisites:** A workspace with a `package.json` containing a harmless, identifiable script such as `"marker": "echo SHOULD-NOT-RUN"`.  
 **Actions:** Run **Terminal Blueprint: Scan Project**.  
 **Expected:** Metadata and suggestions display in the Terminal Blueprint Output Channel. No terminal opens and the marker script does not run.
 
+**Recorded evidence (2026-11-19, PARTIAL):** The disposable `D:\terminal-blueprint-safe-fixture` scan detected Node.js, npm, and the `marker` script, and suggested `npm run marker`. The scanner reported no commands executed. The overall test remains PARTIAL because the evidence does not independently record the no-terminal condition for this scan.
+
 ### MT-03 — Suggested-command approval and cancellation
 
-**Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
+**Compatibility:** Current + 1.85 · **Result:** PASS
 **Prerequisites:** Trusted workspace with a verified harmless package script, for example `npm run marker`.  
 **Actions:** Run **Terminal Blueprint: Run Suggested Command**, select the suggestion, then first choose Cancel in the preview. Repeat and choose Approve.  
 **Expected:** Cancel creates no terminal. Approve creates one visible Terminal Blueprint terminal at the displayed working directory and sends only the previewed command once.
 
+**Recorded evidence (2026-11-19, PASS):** Cancellation created no terminal and executed no command. On approval, exactly one new terminal was created; `npm run marker` was sent once; `TERMINAL_BLUEPRINT_MARKER` appeared once; and `Get-Location` returned `D:\terminal-blueprint-safe-fixture`.
+
 ### MT-04 — Workspace Trust blocks execution
 
-**Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
+**Compatibility:** Current + 1.85 · **Result:** PASS
 **Prerequisites:** Open the same fixture in Restricted Mode.  
 **Actions:** Run **Terminal Blueprint: Run Suggested Command** and **Terminal Blueprint: Run Blueprint**.  
 **Expected:** Execution is blocked with a visible warning. No terminal is created and no command is sent.
+
+**Recorded evidence (2026-11-19, PASS):** VS Code displayed the Restricted Mode banner. Run Suggested Command was blocked with the expected untrusted-workspace warning. Run Blueprint was blocked with `Terminal Blueprint: Blueprint execution is unavailable in an untrusted workspace.` No new terminal was visible, no marker command ran, saved blueprints remained visible, and COMPATIBLE compatibility output did not authorize execution.
 
 ### MT-05 — Nested and multi-root working-directory isolation
 
@@ -75,10 +81,12 @@ Tests marked **Current + 1.85** should be run in the current installed VS Code a
 
 ### MT-08 — Automatic scanning and notifications do not bypass safety
 
-**Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
+**Compatibility:** Current + 1.85 · **Result:** PARTIAL
 **Prerequisites:** A workspace with detectable metadata; Settings UI available.  
 **Actions:** Set `terminalBlueprint.autoScan` to false and reopen the workspace; then set it true in a trusted workspace and reopen. Repeat in Restricted Mode. Toggle `terminalBlueprint.showNotifications` off.  
 **Expected:** No scan occurs automatically when disabled or when untrusted. Trusted auto-scan is read-only and opens no terminal. Optional information is suppressed when configured, but warnings and approval prompts remain visible.
+
+**Recorded evidence (2026-11-19, PARTIAL):** With `terminalBlueprint.autoScan=false`, reopening the safe fixture produced no automatic terminal or command execution. With `terminalBlueprint.autoScan=true`, reloading the trusted Extension Development Host showed the fixture project and `Run marker` suggestion in the sidebar, with no terminal visible and no automatic execution. This does not establish that a new scan ran rather than cached results being restored. Restricted-mode auto-scan behavior and notification-preference behavior remain untested.
 
 ## P1 — Core functionality
 
@@ -86,15 +94,17 @@ Tests marked **Current + 1.85** should be run in the current installed VS Code a
 
 **Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
 **Prerequisites:** Any open workspace.  
-**Actions:** Select the Terminal Blueprint Activity Bar icon, expand Detected Projects, Suggested Commands, and Saved Blueprints, then invoke **Terminal Blueprint: Refresh Sidebar**.  
+**Actions:** Select the Terminal Blueprint Activity Bar icon, expand Detected Projects and Saved Blueprints, expand a detected project with suggestions, then invoke **Terminal Blueprint: Refresh Sidebar**.
 **Expected:** Native Tree View categories, icons, tooltips, loading/empty states, and refresh behavior appear without a webview or terminal creation.
 
 ### MT-10 — Node.js, React, Next.js, TypeScript, and package-manager detection
 
-**Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
+**Compatibility:** Current + 1.85 · **Result:** PARTIAL
 **Prerequisites:** Node fixtures with verified dependency metadata and separate npm, pnpm, Yarn, and Bun lockfile evidence.  
 **Actions:** Run **Terminal Blueprint: Scan Project** for each fixture, including one with conflicting lockfiles.  
 **Expected:** Technologies, scripts, and one unambiguous package manager are displayed correctly. Conflicting evidence produces a warning rather than an executable script command.
+
+**Recorded evidence (2026-11-19, PARTIAL):** A manual scan of `dr-joice-varghese` detected Node.js, Next.js, React, TypeScript, npm, and the `dev`, `build`, `lint`, and `start` scripts. The owner reported that the scan did not execute a command. This covers one npm/Next.js scenario only; separate package-manager and conflicting-evidence cases remain untested.
 
 ### MT-11 — Python, Django, Flask, FastAPI, and tooling detection
 
@@ -126,10 +136,12 @@ Tests marked **Current + 1.85** should be run in the current installed VS Code a
 
 ### MT-15 — Blueprint management
 
-**Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
+**Compatibility:** Current + 1.85 · **Result:** PARTIAL
 **Prerequisites:** Workspace open; no terminal needed.  
 **Actions:** Run **Terminal Blueprint: Create Blueprint**. Then use **Terminal Blueprint: Manage Blueprints** to view, rename, edit description, add/edit/remove/reorder commands, duplicate, and delete with confirmation.  
 **Expected:** Cancellation leaves data unchanged; duplicate gets new IDs; deletion requires confirmation; no terminal opens during management.
+
+**Recorded evidence (2026-11-19, PARTIAL):** `MT04 Sidebar Retest` was created with a success notification and remained visible after Extension Development Host reload. The two earlier `MT04 Safe Test` blueprints were also visible after reload, and no new persistence error was observed. This confirms persistence and reload visibility only; it does not establish immediate sidebar refresh before reload, nor the remaining management operations.
 
 ### MT-16 — Blueprint export and import
 
@@ -156,7 +168,7 @@ Tests marked **Current + 1.85** should be run in the current installed VS Code a
 
 **Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
 **Prerequisites:** Browser/external URI handling enabled.  
-**Actions:** Run **Terminal Blueprint: Support Development** and activate Support Development beneath Saved Blueprints.  
+**Actions:** Run **Terminal Blueprint: Support Development** from the Command Palette and activate Buy Me a Coffee beneath Support & About in the sidebar.
 **Expected:** Each opens `https://buymeacoffee.com/amaljithkab` through VS Code’s external handler. No donation popup, terminal, scan, storage change, or payment flow occurs.
 
 ### MT-20 — Output and filesystem-error handling
@@ -172,8 +184,8 @@ Tests marked **Current + 1.85** should be run in the current installed VS Code a
 
 **Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
 **Prerequisites:** Empty workspace or no saved blueprints.  
-**Actions:** Navigate the sidebar using keyboard focus and expand each category. Focus the Support Development item.  
-**Expected:** Clear empty-state labels, meaningful tooltips, accessible labels, and keyboard activation work without misleading executable actions.
+**Actions:** Navigate the sidebar using keyboard focus, expand each category and project, open the item context menus, and focus Buy Me a Coffee beneath Support & About.
+**Expected:** Clear empty-state labels, meaningful tooltips, accessible labels, and keyboard-accessible native actions work without misleading executable actions.
 
 ### MT-22 — Notification preference UX
 
@@ -194,7 +206,7 @@ Tests marked **Current + 1.85** should be run in the current installed VS Code a
 **Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
 **Prerequisites:** Repository checkout.  
 **Actions:** Open `README.md`, `LICENSE`, and `package.json`.  
-**Expected:** README links to MIT LICENSE and optional Buy Me a Coffee support; manifest declares MIT and the exact sponsor URL; no Marketplace publisher ID is claimed.
+**Expected:** README links to MIT LICENSE and optional Buy Me a Coffee support; manifest declares MIT, the exact sponsor URL, and publisher ID `amalkali`.
 
 ### MT-25 — VS Code 1.85 minimum-version smoke test
 
