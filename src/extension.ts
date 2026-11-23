@@ -217,7 +217,9 @@ export function activate(context: vscode.ExtensionContext) {
                 (blueprint, project, compatibility) => {
                     output.clear();
                     for (const line of formatBlueprintCompatibilityOutput(blueprint, project, compatibility)) { output.appendLine(line); }
-                    output.show();
+                    // Compatibility is useful context, but revealing the Output channel must
+                    // not take focus away from the command picker opened immediately after it.
+                    output.show(true);
                 }
             );
         } catch (error) {

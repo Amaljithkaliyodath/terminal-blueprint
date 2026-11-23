@@ -60,17 +60,21 @@ Tests marked **Current + 1.85** should be run in the current installed VS Code a
 
 ### MT-05 — Nested and multi-root working-directory isolation
 
-**Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
+**Compatibility:** Current + 1.85 · **Result:** PASS
 **Prerequisites:** A multi-root workspace with independently detected nested projects, such as `apps/web` and `services/api`, each with a distinct harmless script.  
 **Actions:** Scan, inspect sidebar groups, select one suggestion from each project, and approve each separately.  
 **Expected:** Suggestions stay under the correct project and each terminal uses its selected project directory; no commands or paths are mixed across roots.
+
+**Recorded evidence (2026-11-23, PASS):** A real VS Code multi-root workspace with separate `apps` and `services` roots detected both Node.js projects and their npm commands. `web-marker` executed in `apps/web` and `api-marker` executed in `services/api`; their terminal output and working directories were verified, with no cross-project execution.
 
 ### MT-06 — Blueprint execution remains restricted and approved
 
 **Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
 **Prerequisites:** Trusted project with one eligible verified suggestion and a saved blueprint containing both that command and an unsupported command such as `echo arbitrary`.  
-**Actions:** Run **Terminal Blueprint: Run Blueprint**, select the project and blueprint, inspect warnings and command selection, then cancel once and approve only the eligible command once.  
+**Actions:** First run **Terminal Blueprint: Scan Project** and confirm the exact eligible suggestion text (for example `npm run marker`) is shown for the selected project. Create or edit the blueprint with that exact text, without quotes or extra arguments, and leave the relative working directory blank (project root). Run **Terminal Blueprint: Run Blueprint**, select the project and blueprint, inspect warnings and command selection, then cancel once and approve only the eligible command once.  
 **Expected:** Unsupported text is not offered for execution. Cancellation creates no terminal. The eligible command requires final approval before it runs.
+
+**Execution note:** `COMPATIBLE` is advisory: it checks requirements and working directories, not whether stored text is currently executable. A stored command is offered only when it independently matches a safe, currently verified suggestion for the selected project.
 
 ### MT-07 — Unsafe or malformed metadata does not create executable suggestions
 
@@ -166,10 +170,12 @@ Tests marked **Current + 1.85** should be run in the current installed VS Code a
 
 ### MT-19 — Support Development action
 
-**Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
+**Compatibility:** Current + 1.85 · **Result:** PARTIAL
 **Prerequisites:** Browser/external URI handling enabled.  
 **Actions:** Run **Terminal Blueprint: Support Development** from the Command Palette and activate Buy Me a Coffee beneath Support & About in the sidebar.
 **Expected:** Each opens `https://buymeacoffee.com/amaljithkab` through VS Code’s external handler. No donation popup, terminal, scan, storage change, or payment flow occurs.
+
+**Recorded evidence (2026-11-23, PARTIAL):** Buy Me a Coffee beneath Support & About opened `https://buymeacoffee.com/amaljithkab` in the external browser with no unwanted side effects. The Command Palette route remains to be verified separately.
 
 ### MT-20 — Output and filesystem-error handling
 
@@ -182,10 +188,12 @@ Tests marked **Current + 1.85** should be run in the current installed VS Code a
 
 ### MT-21 — Empty states and keyboard accessibility
 
-**Compatibility:** Current + 1.85 · **Result:** NOT TESTED  
+**Compatibility:** Current + 1.85 · **Result:** PARTIAL
 **Prerequisites:** Empty workspace or no saved blueprints.  
 **Actions:** Navigate the sidebar using keyboard focus, expand each category and project, open the item context menus, and focus Buy Me a Coffee beneath Support & About.
 **Expected:** Clear empty-state labels, meaningful tooltips, accessible labels, and keyboard-accessible native actions work without misleading executable actions.
+
+**Recorded evidence (2026-11-23, PARTIAL):** Keyboard navigation reached Buy Me a Coffee beneath Support & About, and Enter opened the external support link with no unwanted side effects. Empty states, project expansion, and other native context-menu actions remain untested.
 
 ### MT-22 — Notification preference UX
 

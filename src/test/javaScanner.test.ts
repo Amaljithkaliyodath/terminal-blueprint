@@ -18,10 +18,20 @@ suite('Java Scanner', () => {
         assert.deepStrictEqual(result.technologies, ['Gradle', 'Kotlin', 'Spring Boot']);
     });
 
-    test('does not infer Java or Spring Boot from an empty Gradle file', () => {
+    test('rejects blank, comments-only, unrelated, and incomplete Gradle metadata', () => {
+        for (const buildGradle of ['', '  \n\t', '// comment only\n/* still a comment */', 'not a Gradle build', 'plugins {']) {
+            assert.deepStrictEqual(analyzeJavaMetadata({ buildGradle }).technologies, []);
+        }
+    });
+
+    test('detects verified Groovy and Kotlin Gradle DSL metadata', () => {
         assert.deepStrictEqual(
-            analyzeJavaMetadata({ buildGradle: '' }).technologies,
-            ['Gradle']
+            analyzeJavaMetadata({ buildGradle: "plugins { id 'java' }" }).technologies,
+            ['Gradle', 'Java']
+        );
+        assert.deepStrictEqual(
+            analyzeJavaMetadata({ buildGradleKts: 'plugins { id("java") }' }).technologies,
+            ['Gradle', 'Java']
         );
     });
 

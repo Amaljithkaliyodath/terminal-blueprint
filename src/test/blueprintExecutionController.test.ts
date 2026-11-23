@@ -26,6 +26,47 @@ suite('Blueprint Execution Controller', () => {
         assert.deepStrictEqual(terminals.commands, []);
     });
 
+    test('offers independently verified commands from a mixed blueprint and preserves cancellation', async () => {
+        const mixed = blueprint(['marker', 'unsupported-one', 'unsupported-two']);
+        mixed.commands[0].command = '\tnpm run marker  ';
+        mixed.commands[1].command = 'echo arbitrary';
+        mixed.commands[2].command = 'echo arbitrary';
+        const target = project({ scripts: [{ name: 'marker', command: 'echo TERMINAL_BLUEPRINT_MARKER' }] });
+        const cancelledUi = executionUi({ selected: ['marker'], approved: false });
+        const cancelledTerminals = terminalService();
+
+        assert.strictEqual(await run(mixed, target, cancelledUi, directories(['/workspace/project']), cancelledTerminals, terminalTracker()), 'cancelled');
+        assert.deepStrictEqual(cancelledUi.pickedCommandIds, ['marker']);
+        assert.ok(cancelledUi.warnings.includes('Terminal Blueprint: 2 blueprint command(s) are unsupported and cannot be executed.'));
+        assert.deepStrictEqual(cancelledTerminals.commands, []);
+
+        const approvedUi = executionUi({ selected: ['marker'], approved: true });
+        const approvedTerminals = terminalService();
+        assert.strictEqual(await run(mixed, target, approvedUi, directories(['/workspace/project']), approvedTerminals, terminalTracker()), 'executed');
+        assert.deepStrictEqual(approvedTerminals.commands, ['npm run marker']);
+    });
+
+    test('reports compatibility before opening the safe command picker for a mixed blueprint', async () => {
+        const mixed = blueprint(['marker', 'unsupported']);
+        mixed.commands[0].command = ' npm run marker ';
+        mixed.commands[1].command = 'echo arbitrary';
+        const target = project({ scripts: [{ name: 'marker', command: 'echo TERMINAL_BLUEPRINT_MARKER' }] });
+        const events: string[] = [];
+        const ui = executionUi({ selected: ['marker'], approved: false });
+        const originalPickCommands = ui.pickCommands;
+        ui.pickCommands = async (items) => {
+            events.push(`picker:${items.map((item) => item.commandId).join(',')}`);
+            return originalPickCommands.call(ui, items);
+        };
+
+        assert.strictEqual(
+            await selectAndRunBlueprint(storage(mixed), async () => [target], () => true, ui, directories(['/workspace/project']), terminalService(), terminalTracker(), () => events.push('compatibility')),
+            'cancelled'
+        );
+        assert.deepStrictEqual(events, ['compatibility', 'picker:marker']);
+        assert.ok(ui.warnings.includes('Terminal Blueprint: 1 blueprint command(s) are unsupported and cannot be executed.'));
+    });
+
     test('requires warning acknowledgement and incompatible override without treating either as approval', async () => {
         const warningBlueprint = blueprint(['dev']); warningBlueprint.packageManagerHint = 'npm';
         const ambiguous = project({ packageManager: { candidates: ['npm', 'pnpm'], source: 'lockfile', isAmbiguous: true } });
@@ -71,15 +112,15 @@ function project(overrides: Partial<ProjectInfo> = {}): ProjectInfo { return { n
 function directories(paths: readonly string[]): CompatibilityFileSystem { return { async stat(uri) { if (!paths.includes(uri.path)) { throw Object.assign(new Error('missing'), { code: 'FileNotFound' }); } return directoryStat(); } }; }
 function directoryStat(): vscode.FileStat { return { type: vscode.FileType.Directory, ctime: 0, mtime: 0, size: 0 }; }
 
-interface TestUi extends BlueprintExecutionUi { preview?: { plans: readonly unknown[]; message: string }; }
+interface TestUi extends BlueprintExecutionUi { preview?: { plans: readonly unknown[]; message: string }; pickedCommandIds?: string[]; warnings: string[]; }
 function executionUi(options: { blueprint?: string | undefined; project?: ProjectInfo; selected?: string[]; warning?: boolean; override?: boolean; approved?: boolean; onApproval?: () => void } = {}): TestUi { return {
     async pickBlueprint(items) { return options.blueprint === undefined && 'blueprint' in options ? undefined : items[0]?.blueprint; },
     async pickProject(items) { return options.project ?? items[0]?.project; },
-    async pickCommands() { return options.selected; },
+    async pickCommands(items) { this.pickedCommandIds = items.map((item) => item.commandId); return options.selected; },
     async acknowledgeWarning() { return options.warning ?? true; },
     async confirmIncompatibleOverride() { return options.override ?? true; },
     async requestApproval(preview) { this.preview = preview; options.onApproval?.(); return options.approved ?? false; },
-    showWarning() {}, showInformation() {}
+    warnings: [], showWarning(message) { this.warnings.push(message); }, showInformation() {}
 }; }
 
 interface TestTerminalService extends TerminalService { commands: string[]; directories: string[]; }
