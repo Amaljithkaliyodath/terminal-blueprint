@@ -1,11 +1,34 @@
+# Development source, tests, and build configuration
+src/**
+out/test/**
+docs/**
 .vscode/**
 .vscode-test/**
-src/**
+.vscode-test.mjs
+.github/**
+.git/**
 .gitignore
 .yarnrc
-vsc-extension-quickstart.md
-**/tsconfig.json
-**/eslint.config.mjs
+package-lock.json
+tsconfig.json
+eslint.config.mjs
+
+# Development dependencies and generated diagnostics
+node_modules/**
 **/*.map
 **/*.ts
-**/.vscode-test.*
+coverage/**
+*.log
+*.tmp
+*.vsix
+
+# Local configuration, credentials, and agent artifacts
+.env
+.env.*
+**/.env
+**/.env.*
+.npmrc
+*.pem
+*.key
+.codex/**
+.agents/**

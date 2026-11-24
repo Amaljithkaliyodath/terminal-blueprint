@@ -91,7 +91,9 @@ function authorizedCommands(blueprint: TerminalBlueprint, project: ProjectInfo):
     const suggestions = generateCommandSuggestions([project]).suggestions.filter(isSafeSuggestionForExecution);
     return blueprint.commands.flatMap((entry) => {
         if (entry.relativeWorkingDirectory && entry.relativeWorkingDirectory !== '.') { return []; }
-        const suggestion = suggestions.find((candidate) => candidate.command === entry.command);
+        // Stored blueprint text is untrusted. Trim only surrounding whitespace for
+        // comparison, then execute the independently verified suggestion text.
+        const suggestion = suggestions.find((candidate) => candidate.command === entry.command.trim());
         return suggestion ? [{ id: entry.id, label: entry.label, command: suggestion.command, source: suggestion.source, reason: suggestion.reason }] : [];
     });
 }

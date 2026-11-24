@@ -10,6 +10,7 @@ import { scanJavaProject } from './javaScanner';
 import { scanPhpProject } from './phpScanner';
 import { scanPythonProject } from './pythonScanner';
 import { scanRustProject } from './rustScanner';
+import { hasSafeMetadataFile } from './safeMetadataReader';
 
 // Structure of the scan result.
 export interface ProjectInfo {
@@ -40,6 +41,7 @@ export const DEFAULT_SCAN_LIMITS: ScanLimits = {
 };
 
 export const MANDATORY_IGNORED_DIRECTORY_NAMES = [
+    '$RECYCLE.BIN',
     '.git',
     '.next',
     '.venv',
@@ -50,6 +52,7 @@ export const MANDATORY_IGNORED_DIRECTORY_NAMES = [
     'env',
     'node_modules',
     'out',
+    'System Volume Information',
     'target',
     'venv'
 ] as const;
@@ -102,27 +105,8 @@ export async function scanProjectFolder(
 
     for (const [fileName, technology] of Object.entries(detectionFiles)) {
 
-        const fileUri = vscode.Uri.joinPath(
-            folderUri,
-            fileName
-        );
-
-        try {
-
-            // Check whether the file exists.
-            const stat = await vscode.workspace.fs.stat(fileUri);
-
-            // Only accept regular files.
-            if (
-                (stat.type & vscode.FileType.File) !== 0 &&
-                !technologies.includes(technology)
-            ) {
-                technologies.push(technology);
-            }
-
-        } catch {
-            // Missing or inaccessible file.
-            // Continue scanning other files.
+        if (await hasSafeMetadataFile(folderUri, fileName) && !technologies.includes(technology)) {
+            technologies.push(technology);
         }
     }
 
@@ -231,7 +215,7 @@ async function discoverProjectFolders(
             };
             const childEntries = await readDirectory(childFolder.uri);
 
-            if (childEntries && containsProjectMarker(childEntries)) {
+            if (childEntries && await containsProjectMarker(childFolder.uri, childEntries)) {
                 discoveredFolders.push(childFolder);
             }
 
@@ -269,7 +253,16 @@ async function readDirectory(
 function isTraversableDirectory(name: string, type: vscode.FileType, excludedDirectoryNames: readonly string[]): boolean {
     return (type & vscode.FileType.Directory) !== 0 &&
         (type & vscode.FileType.SymbolicLink) === 0 &&
-        !excludedDirectoryNames.includes(name);
+        !isExcludedDirectoryName(name, excludedDirectoryNames);
+}
+
+function isExcludedDirectoryName(name: string, excludedDirectoryNames: readonly string[]): boolean {
+    if (process.platform === 'win32') {
+        const normalizedName = name.toLowerCase();
+        return excludedDirectoryNames.some((excludedName) => excludedName.toLowerCase() === normalizedName);
+    }
+
+    return excludedDirectoryNames.includes(name);
 }
 
 function normalizeScanLimits(limits: ScanLimits): ScanLimits {
@@ -285,10 +278,13 @@ function isSafeDirectoryName(value: string): boolean {
     return /^(?!\.{1,2}$)[A-Za-z0-9._-]{1,100}$/.test(value);
 }
 
-function containsProjectMarker(entries: readonly [string, vscode.FileType][]): boolean {
-    return entries.some(([name, type]) =>
-        (type & vscode.FileType.File) !== 0 && projectMarkerFiles.has(name)
-    );
+async function containsProjectMarker(projectUri: vscode.Uri, entries: readonly [string, vscode.FileType][]): Promise<boolean> {
+    for (const [name, type] of entries) {
+        if ((type & vscode.FileType.File) !== 0 && projectMarkerFiles.has(name) && await hasSafeMetadataFile(projectUri, name)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function getRelativePath(workspaceUri: vscode.Uri, projectUri: vscode.Uri): string {

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { readSafeMetadataFile } from './safeMetadataReader';
 
 export interface RustScanResult {
     technologies: string[];
@@ -8,9 +9,9 @@ const textDecoder = new TextDecoder('utf-8');
 
 export async function scanRustProject(projectUri: vscode.Uri): Promise<RustScanResult | undefined> {
     try {
-        const contents = textDecoder.decode(await vscode.workspace.fs.readFile(
-            vscode.Uri.joinPath(projectUri, 'Cargo.toml')
-        ));
+        const metadata = await readSafeMetadataFile(projectUri, 'Cargo.toml');
+        if (!metadata) { return undefined; }
+        const contents = textDecoder.decode(metadata);
         return analyzeCargoToml(contents);
     } catch {
         return undefined;

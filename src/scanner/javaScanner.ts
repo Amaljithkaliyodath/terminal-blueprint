@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { readSafeMetadataFile } from './safeMetadataReader';
 
 export interface JavaScanResult {
     technologies: string[];
@@ -14,9 +15,9 @@ const textDecoder = new TextDecoder('utf-8');
 
 export async function scanJavaProject(projectUri: vscode.Uri): Promise<JavaScanResult | undefined> {
     const [pomXml, buildGradle, buildGradleKts] = await Promise.all([
-        readTextFile(vscode.Uri.joinPath(projectUri, 'pom.xml')),
-        readTextFile(vscode.Uri.joinPath(projectUri, 'build.gradle')),
-        readTextFile(vscode.Uri.joinPath(projectUri, 'build.gradle.kts'))
+        readTextFile(projectUri, 'pom.xml'),
+        readTextFile(projectUri, 'build.gradle'),
+        readTextFile(projectUri, 'build.gradle.kts')
     ]);
     const metadata = { pomXml, buildGradle, buildGradleKts };
 
@@ -28,7 +29,8 @@ export async function scanJavaProject(projectUri: vscode.Uri): Promise<JavaScanR
 export function analyzeJavaMetadata(metadata: JavaMetadata): JavaScanResult {
     const technologies: string[] = [];
     const gradleFiles = [metadata.buildGradle, metadata.buildGradleKts]
-        .filter((contents): contents is string => contents !== undefined);
+        .filter((contents): contents is string => contents !== undefined)
+        .filter(isVerifiedGradleBuild);
     const allMetadata = [metadata.pomXml, ...gradleFiles].join('\n');
 
     if (isValidMavenPom(metadata.pomXml)) {
@@ -96,9 +98,43 @@ function hasSpringBootIndicator(contents: string): boolean {
     return /spring-boot|org\.springframework\.boot/i.test(contents);
 }
 
-async function readTextFile(uri: vscode.Uri): Promise<string | undefined> {
+/**
+ * Gradle does not offer a safe, dependency-free manifest parser. Accept only a
+ * deliberately small set of static build-script constructs, rather than using
+ * marker-file presence as evidence. This rejects blank, comment-only,
+ * unrelated, and structurally incomplete files without evaluating the script.
+ */
+function isVerifiedGradleBuild(contents: string): boolean {
+    const source = stripGradleComments(contents).trim();
+    if (!source || !hasBalancedBraces(source)) {
+        return false;
+    }
+
+    return /\bplugins\s*\{|\b(?:repositories|dependencies|configurations)\s*\{|\b(?:tasks|task)\s*(?:\{|\.)|\bapply\s+plugin\s*:|\bapply\s*\(\s*plugin\s*=/i.test(source);
+}
+
+function stripGradleComments(contents: string): string {
+    return contents
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(^|\s)\/\/.*$/gm, '$1');
+}
+
+function hasBalancedBraces(contents: string): boolean {
+    let depth = 0;
+    for (const character of contents) {
+        if (character === '{') { depth += 1; }
+        if (character === '}') {
+            depth -= 1;
+            if (depth < 0) { return false; }
+        }
+    }
+    return depth === 0;
+}
+
+async function readTextFile(projectUri: vscode.Uri, fileName: string): Promise<string | undefined> {
     try {
-        return textDecoder.decode(await vscode.workspace.fs.readFile(uri));
+        const contents = await readSafeMetadataFile(projectUri, fileName);
+        return contents ? textDecoder.decode(contents) : undefined;
     } catch {
         return undefined;
     }

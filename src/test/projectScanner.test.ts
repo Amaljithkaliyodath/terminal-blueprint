@@ -45,7 +45,6 @@ suite('Project Scanner', () => {
                 'PHP',
                 'Composer',
                 'Maven',
-                'Gradle',
                 'Go',
                 'Go modules',
                 'Rust',
@@ -108,11 +107,24 @@ suite('Project Scanner', () => {
                 vscode.Uri.file(fixturePath)
             );
 
-            assert.deepStrictEqual(result.technologies, ['Gradle']);
-            assert.ok(!result.technologies.includes('Java'));
-            assert.ok(!result.technologies.includes('Kotlin'));
-            assert.ok(!result.technologies.includes('Go'));
-            assert.ok(!result.technologies.includes('Rust'));
+            assert.deepStrictEqual(result.technologies, []);
+        } finally {
+            await fs.rm(fixturePath, { recursive: true, force: true });
+        }
+    });
+
+    test('does not generate Gradle suggestions from blank or unrelated build metadata', async () => {
+        const fixturePath = await fs.mkdtemp(path.join(os.tmpdir(), 'terminal-blueprint-'));
+
+        try {
+            await Promise.all([
+                fs.writeFile(path.join(fixturePath, 'build.gradle'), '/* placeholder */'),
+                fs.writeFile(path.join(fixturePath, 'build.gradle.kts'), 'not a Gradle build')
+            ]);
+            const project = await scanProjectFolder('fixture', vscode.Uri.file(fixturePath));
+            const suggestions = generateCommandSuggestions([project]);
+            assert.deepStrictEqual(project.technologies, []);
+            assert.deepStrictEqual(suggestions.suggestions, []);
         } finally {
             await fs.rm(fixturePath, { recursive: true, force: true });
         }

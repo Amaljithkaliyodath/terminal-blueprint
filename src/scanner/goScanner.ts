@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { readSafeMetadataFile } from './safeMetadataReader';
 
 export interface GoScanResult {
     technologies: string[];
@@ -8,9 +9,9 @@ const textDecoder = new TextDecoder('utf-8');
 
 export async function scanGoProject(projectUri: vscode.Uri): Promise<GoScanResult | undefined> {
     try {
-        const contents = textDecoder.decode(await vscode.workspace.fs.readFile(
-            vscode.Uri.joinPath(projectUri, 'go.mod')
-        ));
+        const metadata = await readSafeMetadataFile(projectUri, 'go.mod');
+        if (!metadata) { return undefined; }
+        const contents = textDecoder.decode(metadata);
         return analyzeGoMod(contents);
     } catch {
         return undefined;

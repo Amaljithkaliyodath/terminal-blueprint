@@ -15,12 +15,12 @@ suite('Sidebar Data Controller', () => {
         const roots = provider.getChildren();
         const projects = provider.getChildren(category(roots, 'projects'));
         assert.deepStrictEqual(projects.map((item) => item.label), ['web', 'api']);
-        assert.ok(String(projects[0].description).includes('Next.js'));
+        assert.ok(String(projects[0].description).includes('apps/web'));
         assert.ok(String(projects[0].tooltip).includes('Package manager: npm'));
-        const commandGroups = provider.getChildren(category(roots, 'commands'));
-        assert.deepStrictEqual(commandGroups.map((item) => item.label), ['web (apps/web)', 'api (services/api)']);
-        const commands = provider.getChildren(commandGroups[0]);
+        const commands = provider.getChildren(projects[0]);
         assert.deepStrictEqual(commands.map((item) => item.description), ['npm run build', 'npm run dev']);
+        assert.strictEqual(projects[0].contextValue, 'terminal-blueprint.project');
+        assert.strictEqual(commands[0].contextValue, 'terminal-blueprint.suggestion');
         assert.ok(commands[0].tooltip?.toString().includes(first.workingDirectory.fsPath));
         controller.dispose(); provider.dispose();
     });
@@ -30,7 +30,6 @@ suite('Sidebar Data Controller', () => {
         const empty = new SidebarDataController(provider, source([], { suggestions: [], warnings: [] }));
         await empty.refresh();
         assert.strictEqual(provider.getChildren(category(provider.getChildren(), 'projects'))[0].label, 'No projects detected');
-        assert.strictEqual(provider.getChildren(category(provider.getChildren(), 'commands'))[0].label, 'No suggested commands');
         empty.dispose();
         const failing = new SidebarDataController(provider, { ...source([], { suggestions: [], warnings: [] }), async scanProjects() { throw new Error('scanner'); } });
         await failing.refresh();
@@ -84,6 +83,21 @@ suite('Sidebar Data Controller', () => {
         assert.strictEqual(details[0].label, 'Compatibility: COMPATIBLE');
         assert.deepStrictEqual(details.slice(1).map((item) => item.id), ['terminal-blueprint.blueprint-command.saved.saved-command', 'terminal-blueprint.blueprint-command.saved.second']);
         assert.ok(details[1].tooltip?.toString().includes('not executable from the sidebar'));
+        controller.dispose(); provider.dispose();
+    });
+
+    test('shows a blueprint persisted between sidebar refreshes', async () => {
+        const provider = new TerminalBlueprintTreeProvider();
+        const blueprints: TerminalBlueprint[] = [];
+        const controller = new SidebarDataController(provider, source([project('web', '.', '/workspace')], { suggestions: [], warnings: [] }, blueprints));
+
+        await controller.refresh();
+        assert.strictEqual(provider.getChildren(category(provider.getChildren(), 'blueprints'))[0].label, 'No saved blueprints');
+
+        blueprints.push(blueprint('persisted'));
+        await controller.refresh();
+        assert.strictEqual(provider.getChildren(category(provider.getChildren(), 'blueprints'))[0].label, 'persisted');
+
         controller.dispose(); provider.dispose();
     });
 

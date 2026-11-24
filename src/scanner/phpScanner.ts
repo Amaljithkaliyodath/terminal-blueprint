@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DiscoveredScript } from './packageJsonScanner';
+import { hasSafeMetadataFile, readSafeMetadataFile } from './safeMetadataReader';
 
 export interface PhpScanResult {
     technologies: string[];
@@ -10,8 +11,8 @@ const textDecoder = new TextDecoder('utf-8');
 
 export async function scanPhpProject(projectUri: vscode.Uri): Promise<PhpScanResult | undefined> {
     const [composerJson, artisanExists] = await Promise.all([
-        readTextFile(vscode.Uri.joinPath(projectUri, 'composer.json')),
-        fileExists(vscode.Uri.joinPath(projectUri, 'artisan'))
+        readTextFile(projectUri, 'composer.json'),
+        hasSafeMetadataFile(projectUri, 'artisan')
     ]);
 
     return composerJson === undefined && !artisanExists
@@ -84,20 +85,12 @@ function dependencyGroupHasLaravel(value: unknown): boolean {
     return isRecord(value) && 'laravel/framework' in value;
 }
 
-async function readTextFile(uri: vscode.Uri): Promise<string | undefined> {
+async function readTextFile(projectUri: vscode.Uri, fileName: string): Promise<string | undefined> {
     try {
-        return textDecoder.decode(await vscode.workspace.fs.readFile(uri));
+        const contents = await readSafeMetadataFile(projectUri, fileName);
+        return contents ? textDecoder.decode(contents) : undefined;
     } catch {
         return undefined;
-    }
-}
-
-async function fileExists(uri: vscode.Uri): Promise<boolean> {
-    try {
-        const stat = await vscode.workspace.fs.stat(uri);
-        return (stat.type & vscode.FileType.File) !== 0;
-    } catch {
-        return false;
     }
 }
 
