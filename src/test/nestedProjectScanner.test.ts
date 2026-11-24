@@ -68,6 +68,27 @@ suite('Nested Project Scanner', () => {
         }
     });
 
+    test('skips protected operating-system metadata directories without traversing them', async () => {
+        const recycleBinName = process.platform === 'win32' ? '$recycle.bin' : '$RECYCLE.BIN';
+        const systemVolumeName = process.platform === 'win32' ? 'system volume information' : 'System Volume Information';
+        const workspacePath = await createWorkspaceFixture({
+            [`${recycleBinName}/deleted-project/composer.json`]: JSON.stringify({ scripts: { test: 'phpunit' } }),
+            [`${systemVolumeName}/stale-project/package.json`]: '{}',
+            'apps/visible/package.json': '{}'
+        });
+
+        try {
+            const projects = await scanWorkspaceFolder({
+                name: 'workspace',
+                uri: vscode.Uri.file(workspacePath)
+            });
+
+            assert.deepStrictEqual(projects.map((project) => project.relativePath), ['.', 'apps/visible']);
+        } finally {
+            await fs.rm(workspacePath, { recursive: true, force: true });
+        }
+    });
+
     test('respects the configured scan-depth limit', async () => {
         const workspacePath = await createWorkspaceFixture({
             'one/two/three/four/five/package.json': '{}'

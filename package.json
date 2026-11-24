@@ -32,6 +32,7 @@
   },
   "activationEvents": [],
   "main": "./out/extension.js",
+  "icon": "resources/terminal-blueprint.png",
   "contributes": {
     "configuration": {
       "title": "Terminal Blueprint",
@@ -55,7 +56,7 @@
         },
         "terminalBlueprint.excludedDirectories": {
           "type": "array",
-          "default": [".git", ".next", ".venv", "__pycache__", "build", "coverage", "dist", "env", "node_modules", "out", "target", "venv"],
+          "default": ["$RECYCLE.BIN", ".git", ".next", ".venv", "__pycache__", "build", "coverage", "dist", "env", "node_modules", "out", "System Volume Information", "target", "venv"],
           "items": { "type": "string" },
           "description": "Directory names to exclude from project scans. Built-in protected exclusions always remain active."
         }

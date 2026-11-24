@@ -155,11 +155,11 @@ async function selectCommand(blueprint: TerminalBlueprint): Promise<TerminalBlue
 }
 
 async function promptForCommand(existing?: TerminalBlueprintCommand): Promise<BlueprintCommandDraft | undefined> {
-    const label = await vscode.window.showInputBox({ value: existing?.label, prompt: 'Command label', validateInput: requiredText });
+    const label = await vscode.window.showInputBox({ value: existing?.label, prompt: 'Command label (display name, for example "Run marker")', validateInput: requiredText });
     if (label === undefined) {
         return undefined;
     }
-    const command = await vscode.window.showInputBox({ value: existing?.command, prompt: 'Command text (stored only; not executed)', validateInput: requiredText });
+    const command = await vscode.window.showInputBox({ value: existing?.command, prompt: 'Exact command text (for example "npm run marker"). Stored only; not executed.', validateInput: requiredText });
     if (command === undefined) {
         return undefined;
     }

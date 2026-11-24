@@ -23,6 +23,7 @@ import { SidebarDataController } from './sidebar/sidebarDataController';
 import { TerminalBlueprintConfigurationService, TerminalBlueprintInformationService } from './config/terminalBlueprintConfiguration';
 import { AutomaticScanController } from './config/automaticScanController';
 import { openSupportDevelopment } from './support/supportDevelopment';
+import { requestExplicitApproval } from './launcher/approvalPrompt';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -291,13 +292,7 @@ function createCommandSelectionUi(informationService: TerminalBlueprintInformati
             return selected?.suggestion;
         },
         async requestApproval(preview: CommandPreview) {
-            const choice = await vscode.window.showInformationMessage(
-                preview.message,
-                { modal: true },
-                'Approve',
-                'Cancel'
-            );
-            return choice === 'Approve';
+            return requestExplicitApproval(preview.message, vscode.window.showInformationMessage);
         },
         showInformation(message: string) {
             informationService.show(message);
@@ -343,8 +338,7 @@ function createBlueprintExecutionUi(informationService: TerminalBlueprintInforma
             return choice === 'Continue Anyway';
         },
         async requestApproval(preview) {
-            const choice = await vscode.window.showInformationMessage(preview.message, { modal: true }, 'Approve', 'Cancel');
-            return choice === 'Approve';
+            return requestExplicitApproval(preview.message, vscode.window.showInformationMessage);
         },
         showInformation(message) { informationService.show(message); },
         showWarning(message) { void vscode.window.showWarningMessage(message); }

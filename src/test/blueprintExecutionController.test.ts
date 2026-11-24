@@ -22,6 +22,11 @@ suite('Blueprint Execution Controller', () => {
         const terminals = terminalService();
         const unsupported = blueprint(['dev']); unsupported.commands[0].command = 'npm run dev && injected';
         assert.strictEqual(await run(unsupported, project(), executionUi(), directories(['/workspace/project']), terminals, terminalTracker()), 'no-authorized-commands');
+        const directoryEnteredAsCommand = blueprint(['marker']); directoryEnteredAsCommand.commands[0].command = 'D:\\terminal-blueprint-safe-fixture';
+        const markerProject = project({ scripts: [{ name: 'marker', command: 'echo TERMINAL_BLUEPRINT_MARKER' }] });
+        const directoryUi = executionUi();
+        assert.strictEqual(await run(directoryEnteredAsCommand, markerProject, directoryUi, directories(['/workspace/project']), terminals, terminalTracker()), 'no-authorized-commands');
+        assert.ok(directoryUi.warnings.includes('Terminal Blueprint: 1 blueprint command(s) are unsupported and cannot be executed.'));
         assert.strictEqual(await run(blueprint(['dev']), project(), executionUi({ selected: ['dev'], approved: false }), directories(['/workspace/project']), terminals, terminalTracker()), 'cancelled');
         assert.deepStrictEqual(terminals.commands, []);
     });

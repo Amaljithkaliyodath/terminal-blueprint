@@ -41,6 +41,7 @@ export const DEFAULT_SCAN_LIMITS: ScanLimits = {
 };
 
 export const MANDATORY_IGNORED_DIRECTORY_NAMES = [
+    '$RECYCLE.BIN',
     '.git',
     '.next',
     '.venv',
@@ -51,6 +52,7 @@ export const MANDATORY_IGNORED_DIRECTORY_NAMES = [
     'env',
     'node_modules',
     'out',
+    'System Volume Information',
     'target',
     'venv'
 ] as const;
@@ -251,7 +253,16 @@ async function readDirectory(
 function isTraversableDirectory(name: string, type: vscode.FileType, excludedDirectoryNames: readonly string[]): boolean {
     return (type & vscode.FileType.Directory) !== 0 &&
         (type & vscode.FileType.SymbolicLink) === 0 &&
-        !excludedDirectoryNames.includes(name);
+        !isExcludedDirectoryName(name, excludedDirectoryNames);
+}
+
+function isExcludedDirectoryName(name: string, excludedDirectoryNames: readonly string[]): boolean {
+    if (process.platform === 'win32') {
+        const normalizedName = name.toLowerCase();
+        return excludedDirectoryNames.some((excludedName) => excludedName.toLowerCase() === normalizedName);
+    }
+
+    return excludedDirectoryNames.includes(name);
 }
 
 function normalizeScanLimits(limits: ScanLimits): ScanLimits {
